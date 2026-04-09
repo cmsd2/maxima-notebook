@@ -2,9 +2,9 @@
   "name": "maxima-extension",
   "displayName": "Maxima Extension",
   "description": "VSCode Extension for Maxima, a Computer Algebra system",
-  "version": "0.0.2",
+  "version": "0.1.0",
   "engines": {
-    "vscode": "^1.73.0"
+    "vscode": "^1.82.0"
   },
   "categories": [
     "Programming Languages"
@@ -14,17 +14,79 @@
     "type": "git",
     "url": "https://github.com/yshl/maxima-extension.git"
   },
+  "main": "./out/extension.js",
+  "activationEvents": [],
+  "scripts": {
+    "compile": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "package": "node esbuild.mjs --production",
+    "vscode:prepublish": "npm run package",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.82.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.5.0",
+    "esbuild": "^0.21.0"
+  },
   "contributes": {
     "languages": [{
       "id": "maxima",
       "aliases": ["Maxima", "maxima"],
-      "extensions": [".mac",".max", ".wxm"],
+      "extensions": [".mac", ".max", ".wxm"],
       "configuration": "./language-configuration.json"
     }],
     "grammars": [{
       "language": "maxima",
       "scopeName": "source.maxima",
       "path": "./syntaxes/maxima.tmLanguage.json"
-    }]
+    }],
+    "commands": [
+      {
+        "command": "maxima.runFile",
+        "title": "Maxima: Run File",
+        "icon": "$(play)"
+      }
+    ],
+    "menus": {
+      "editor/title/run": [
+        {
+          "command": "maxima.runFile",
+          "when": "editorLangId == maxima",
+          "group": "navigation"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "maxima.runFile",
+          "when": "editorLangId == maxima",
+          "group": "1_run"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "maxima.runFile",
+          "when": "editorLangId == maxima"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Maxima",
+      "properties": {
+        "maxima.lsp.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable the Maxima language server (maxima-lsp) for completions, hover, diagnostics, and more."
+        },
+        "maxima.lsp.path": {
+          "type": "string",
+          "default": "",
+          "description": "Absolute path to the maxima-lsp binary. If empty, searches PATH."
+        }
+      }
+    }
   }
 }

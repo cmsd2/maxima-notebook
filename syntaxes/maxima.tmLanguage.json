@@ -3,13 +3,25 @@
 	"name": "Maxima",
 	"patterns": [
 		{
-			"include": "#keywords"
+			"include": "#comment"
 		},
 		{
 			"include": "#strings"
 		},
 		{
-			"include": "#comment"
+			"include": "#lisp-escape"
+		},
+		{
+			"include": "#function-definition"
+		},
+		{
+			"include": "#definition-operators"
+		},
+		{
+			"include": "#terminators"
+		},
+		{
+			"include": "#keywords"
 		},
 		{
 			"include": "#constant"
@@ -22,37 +34,6 @@
 		}
 	],
 	"repository": {
-		"keywords": {
-			"patterns": [
-				{
-					"name": "keyword.control.maxima",
-					"match": "\\b(do|while|unless|for|from|thru|step|next|in|if|then|else|elseif|return|go)\\b"
-				},
-				{
-					"name": "keyword.function.maxima",
-					"match": "\\b(define)\\b"
-				},
-				{
-					"name": "keyword.operator.maxima",
-					"match": "\\b(and|or|not)\\b"
-				},
-				{
-					"name": "keyword.module.maxima",
-					"match": "\\b(load)\\b"
-				}
-			]
-		},
-		"strings": {
-			"name": "string.quoted.double.maxima",
-			"begin": "\"",
-			"end": "\"",
-			"patterns": [
-				{
-					"name": "constant.character.escape.maxima",
-					"match": "\\\\."
-				}
-			]
-		},
 		"comment": {
 			"patterns": [
 				{
@@ -71,6 +52,76 @@
 				}
 			]
 		},
+		"strings": {
+			"name": "string.quoted.double.maxima",
+			"begin": "\"",
+			"end": "\"",
+			"patterns": [
+				{
+					"name": "constant.character.escape.maxima",
+					"match": "\\\\."
+				}
+			]
+		},
+		"lisp-escape": {
+			"begin": "^\\s*(:lisp)\\b",
+			"beginCaptures": {
+				"1": { "name": "keyword.control.lisp-escape.maxima" }
+			},
+			"end": "$",
+			"name": "meta.embedded.lisp.maxima"
+		},
+		"function-definition": {
+			"match": "\\b([a-zA-Z_%?][a-zA-Z0-9_%?]*)\\s*\\([^)]*\\)\\s*(::?=)",
+			"captures": {
+				"1": { "name": "entity.name.function.definition.maxima" },
+				"2": { "name": "keyword.operator.definition.maxima" }
+			}
+		},
+		"definition-operators": {
+			"patterns": [
+				{
+					"name": "keyword.operator.definition.maxima",
+					"match": "::?="
+				},
+				{
+					"name": "keyword.operator.assignment.maxima",
+					"match": "::?"
+				}
+			]
+		},
+		"terminators": {
+			"patterns": [
+				{
+					"name": "punctuation.terminator.display.maxima",
+					"match": ";"
+				},
+				{
+					"name": "punctuation.terminator.suppress.maxima",
+					"match": "\\$"
+				}
+			]
+		},
+		"keywords": {
+			"patterns": [
+				{
+					"name": "keyword.control.maxima",
+					"match": "\\b(do|while|unless|for|from|thru|step|next|in|if|then|else|elseif|return|go|block|lambda|catch|throw|error|errcatch)\\b"
+				},
+				{
+					"name": "keyword.function.maxima",
+					"match": "\\b(define)\\b"
+				},
+				{
+					"name": "keyword.operator.maxima",
+					"match": "\\b(and|or|not)\\b"
+				},
+				{
+					"name": "keyword.module.maxima",
+					"match": "\\b(load)\\b"
+				}
+			]
+		},
 		"constant": {
 			"patterns": [
 				{
@@ -86,16 +137,16 @@
 		"functions": {
 			"patterns": [
 				{
-					"name": "function.language.maxima",
-					"match": "\\b[[:alnum:]]+\\b(?=\\s*\\()"
+					"name": "entity.name.function.call.maxima",
+					"match": "\\b[a-zA-Z_%?][a-zA-Z0-9_%?]*(?=\\s*\\()"
 				}
 			]
 		},
 		"variables": {
 			"patterns": [
 				{
-					"name": "variable.language.maxima",
-					"match": "\\b([[:alnum:]]+|%|%%|%[io]\\d+|_|__)\\b"
+					"name": "variable.other.maxima",
+					"match": "\\b([a-zA-Z_%?][a-zA-Z0-9_%?]*|%%?|%[io]\\d+|__)\\b"
 				}
 			]
 		}
