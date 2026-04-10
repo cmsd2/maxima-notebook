@@ -67,6 +67,30 @@ export async function activate(
     }),
   );
 
+  // --- MCP token commands ---
+  const MCP_TOKEN_KEY = "maxima.mcp.token";
+  context.subscriptions.push(
+    vscode.commands.registerCommand("maxima.setMcpToken", async () => {
+      const token = await vscode.window.showInputBox({
+        prompt: "Enter the authorization token for the Maxima MCP server",
+        password: true,
+        ignoreFocusOut: true,
+      });
+      if (token !== undefined) {
+        await context.secrets.store(MCP_TOKEN_KEY, token);
+        mcpChanged.fire();
+        vscode.window.showInformationMessage("Maxima MCP token saved.");
+      }
+    }),
+  );
+  context.subscriptions.push(
+    vscode.commands.registerCommand("maxima.clearMcpToken", async () => {
+      await context.secrets.delete(MCP_TOKEN_KEY);
+      mcpChanged.fire();
+      vscode.window.showInformationMessage("Maxima MCP token cleared.");
+    }),
+  );
+
   // --- MCP server provider ---
   const mcpChanged = new vscode.EventEmitter<void>();
   context.subscriptions.push(mcpChanged);
@@ -81,7 +105,9 @@ export async function activate(
         }
         const transport = cfg.get<string>("mcp.transport", "http");
         if (transport === "http") {
-          const url = cfg.get<string>("mcp.url", "http://localhost:8000/mcp").trim();
+          const url = cfg
+            .get<string>("mcp.url", "http://localhost:8000/mcp")
+            .trim();
           if (!url) {
             return [];
           }
@@ -104,6 +130,18 @@ export async function activate(
             mcpArgs,
           ),
         ];
+      },
+      async resolveMcpServerDefinition(server) {
+        if (server instanceof vscode.McpHttpServerDefinition) {
+          const token = await context.secrets.get(MCP_TOKEN_KEY);
+          if (token) {
+            server.headers = {
+              ...server.headers,
+              Authorization: `Bearer ${token}`,
+            };
+          }
+        }
+        return server;
       },
     }),
   );

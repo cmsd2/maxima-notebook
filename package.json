@@ -50,6 +50,14 @@
         "command": "maxima.runFile",
         "title": "Maxima: Run File",
         "icon": "$(play)"
+      },
+      {
+        "command": "maxima.setMcpToken",
+        "title": "Maxima: Set MCP Token"
+      },
+      {
+        "command": "maxima.clearMcpToken",
+        "title": "Maxima: Clear MCP Token"
       }
     ],
     "menus": {
