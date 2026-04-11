@@ -12,6 +12,7 @@ import {
   NOTEBOOK_TYPE,
   NOTEBOOK_TYPE_COMPAT,
 } from "./notebook/controller";
+import { registerLmTools } from "./notebook/lmTools";
 
 let client: LanguageClient | undefined;
 let mcpManager: McpProcessManager | undefined;
@@ -107,6 +108,11 @@ export async function activate(
   mcpManager = new McpProcessManager(notebookOutput);
   notebookController = new NotebookController(mcpManager);
 
+  // Register LM tools for AI agents
+  for (const d of registerLmTools(notebookController)) {
+    context.subscriptions.push(d);
+  }
+
   const notebookTypes = [NOTEBOOK_TYPE, NOTEBOOK_TYPE_COMPAT];
   const serializer = new MaximaNotebookSerializer();
   for (const type of notebookTypes) {
@@ -164,45 +170,80 @@ export async function activate(
   // --- MCP server provider ---
   const mcpChanged = new vscode.EventEmitter<void>();
   context.subscriptions.push(mcpChanged);
+
+  // Forward managed process start/stop to the MCP provider
+  context.subscriptions.push(
+    mcpManager.onDidChangeRunning(() => mcpChanged.fire()),
+  );
+
   context.subscriptions.push(
     vscode.lm.registerMcpServerDefinitionProvider("maxima.mcpServer", {
       onDidChangeMcpServerDefinitions: mcpChanged.event,
       provideMcpServerDefinitions() {
+        const defs: vscode.McpServerDefinition[] = [];
+
+        // Auto-detected managed process (from notebook)
+        if (mcpManager?.isRunning()) {
+          const port = mcpManager.getPort();
+          if (port) {
+            defs.push(
+              new vscode.McpHttpServerDefinition(
+                "Maxima Notebook",
+                vscode.Uri.parse(`http://localhost:${port}/mcp`),
+              ),
+            );
+          }
+        }
+
+        // User-configured server
         const cfg = vscode.workspace.getConfiguration("maxima");
         const enabled = cfg.get<boolean>("mcp.enabled", false);
-        if (!enabled) {
-          return [];
-        }
-        const transport = cfg.get<string>("mcp.transport", "http");
-        if (transport === "http") {
-          const url = cfg
-            .get<string>("mcp.url", "http://localhost:8000/mcp")
-            .trim();
-          if (!url) {
-            return [];
+        if (enabled) {
+          const transport = cfg.get<string>("mcp.transport", "http");
+          if (transport === "http") {
+            const url = cfg
+              .get<string>("mcp.url", "http://localhost:8000/mcp")
+              .trim();
+            if (url) {
+              defs.push(
+                new vscode.McpHttpServerDefinition(
+                  "Maxima MCP",
+                  vscode.Uri.parse(url),
+                ),
+              );
+            }
+          } else {
+            const mcpPath = cfg.get<string>("mcp.path", "").trim();
+            if (mcpPath) {
+              const mcpArgs = cfg.get<string[]>("mcp.args", []);
+              defs.push(
+                new vscode.McpStdioServerDefinition(
+                  "Maxima MCP",
+                  mcpPath,
+                  mcpArgs,
+                ),
+              );
+            }
           }
-          return [
-            new vscode.McpHttpServerDefinition(
-              "Maxima MCP",
-              vscode.Uri.parse(url),
-            ),
-          ];
         }
-        const mcpPath = cfg.get<string>("mcp.path", "").trim();
-        if (!mcpPath) {
-          return [];
-        }
-        const mcpArgs = cfg.get<string[]>("mcp.args", []);
-        return [
-          new vscode.McpStdioServerDefinition(
-            "Maxima MCP",
-            mcpPath,
-            mcpArgs,
-          ),
-        ];
+
+        return defs;
       },
       async resolveMcpServerDefinition(server) {
         if (server instanceof vscode.McpHttpServerDefinition) {
+          // Managed process — inject its ephemeral token
+          if (server.label === "Maxima Notebook" && mcpManager?.isRunning()) {
+            const managedToken = mcpManager.getToken();
+            if (managedToken) {
+              server.headers = {
+                ...server.headers,
+                Authorization: `Bearer ${managedToken}`,
+              };
+            }
+            return server;
+          }
+
+          // User-configured server — use stored secret
           const token = await context.secrets.get(MCP_TOKEN_KEY);
           if (token) {
             server.headers = {

@@ -233,6 +233,54 @@
         "requiresMessaging": "never"
       }
     ],
+    "languageModelTools": [
+      {
+        "name": "maxima_notebook_get_cells",
+        "displayName": "Get Maxima Notebook Cells",
+        "modelDescription": "Get all cells from the active Maxima notebook with their source code, cell type (code/markdown), execution order, and outputs including text, LaTeX math, plot indicators, and errors. Use this to understand what the user has in their notebook.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "maxima_notebook_run_cell",
+        "displayName": "Run Maxima Notebook Cell",
+        "modelDescription": "Execute a specific code cell in the active Maxima notebook by its zero-based index. The output appears in the notebook UI and is also returned. Use this to run existing cells or cells you just added.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "cellIndex": {
+              "type": "number",
+              "description": "Zero-based index of the cell to execute"
+            }
+          },
+          "required": ["cellIndex"],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "maxima_notebook_add_cell",
+        "displayName": "Add Maxima Notebook Cell",
+        "modelDescription": "Add a new Maxima code cell to the active notebook. Optionally specify where to insert it. The cell is added but not executed — use maxima_notebook_run_cell to execute it after adding.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "source": {
+              "type": "string",
+              "description": "The Maxima source code for the new cell"
+            },
+            "afterIndex": {
+              "type": "number",
+              "description": "Insert after this cell index (0-based). If omitted, appends at the end."
+            }
+          },
+          "required": ["source"],
+          "additionalProperties": false
+        }
+      }
+    ],
     "mcpServerDefinitionProviders": [
       {
         "id": "maxima.mcpServer",

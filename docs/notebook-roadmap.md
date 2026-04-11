@@ -23,6 +23,8 @@ notebook in VS Code.
 | .macnb support | `package.json` | Complete — default handler for .macnb files |
 | .ipynb support | `package.json` | Complete — "Open With" option via compat notebook type |
 | New File menu | `package.json` + `extension.ts` | Complete — "Maxima Notebook" in File > New File |
+| LM tools | `src/notebook/lmTools.ts` | Complete — get_cells, run_cell, add_cell for AI agents |
+| MCP auto-detect | `src/extension.ts` | Complete — managed process auto-discovered by AI agents |
 
 ### Known Bugs
 
@@ -33,7 +35,6 @@ notebook in VS Code.
 
 | Component | Planned File | Description |
 |-----------|-------------|-------------|
-| LM tools | `src/notebook/lmTools.ts` | AI bridge tools (`get_cells`, `run_cell`, `add_cell`) |
 | Debug integration | `src/notebook/debug.ts` | Write cells to temp file, launch maxima-dap |
 | AI debug tools | `src/notebook/lmTools.ts` | Debug inspection tools (`variables`, `evaluate`, `callstack`) |
 | Tests | — | Zero test coverage for notebook code |
@@ -103,45 +104,26 @@ Deferred until `aximar-mcp` supports a proper cancel signal.
 
 ---
 
-## Phase 4: AI Integration
+## Phase 4: AI Integration (DONE)
 
 Enable VS Code Copilot and other AI agents to read and manipulate notebooks.
 
-### 4a: LM Tools — Notebook Bridge
+### 4a: LM Tools — Notebook Bridge (DONE)
 
-**File to create:** `src/notebook/lmTools.ts`
+- [x] `src/notebook/lmTools.ts` — three tools registered via `vscode.lm.registerTool()`
+- [x] `maxima_notebook_get_cells` — reads all cells with source, outputs (text/latex/plot flags/errors)
+- [x] `maxima_notebook_run_cell` — executes cell by index via `executeCellByIndex()`, with confirmation
+- [x] `maxima_notebook_add_cell` — inserts code cell at position, with confirmation and code preview
+- [x] `package.json` — `contributes.languageModelTools` with input schemas
+- [x] `controller.ts` — public `executeCellByIndex()` for programmatic execution
 
-**File to modify:** `package.json` — add `contributes.languageModelTools`
+### 4b: MCP Provider Auto-Detection (DONE)
 
-Register tools via `vscode.lm.registerTool()`:
-
-| Tool | Input | Description |
-|------|-------|-------------|
-| `maxima_notebook_get_cells` | `{}` | Read all cells with source and outputs |
-| `maxima_notebook_run_cell` | `{ cellIndex }` | Execute a cell, output appears in UI |
-| `maxima_notebook_add_cell` | `{ source, afterIndex? }` | Add a code cell to the notebook |
-
-**Acceptance criteria:**
-- Copilot can read notebook cells and understand their outputs
-- Copilot can add cells and run them, with results visible in the notebook
-- Works with the `@workspace` agent context
-
-### 4b: MCP Provider Auto-Detection
-
-Update the MCP server definition provider to auto-detect the notebook's
-managed `aximar-mcp` process.
-
-**Work:**
-- When `McpProcessManager` starts, expose the URL + token
-- MCP provider returns `McpHttpServerDefinition` pointing to the managed
-  process (with auth header)
-- When the process stops, `mcpChanged.fire()` removes the definition
-- Fall back to user-configured settings when no managed process is running
-
-**Acceptance criteria:**
-- AI agents automatically discover the notebook's Maxima session
-- `evaluate_expression` via MCP runs in the same session as notebook cells
-- No manual configuration needed — just open a notebook
+- [x] `McpProcessManager` exposes `getToken()` and `onDidChangeRunning` event
+- [x] MCP provider returns auto-detected "Maxima Notebook" definition when
+  managed process is running (alongside user-configured servers)
+- [x] `resolveMcpServerDefinition` injects ephemeral token for managed process
+- [x] `onDidChangeRunning` fires `mcpChanged` to update server list on start/stop
 
 ---
 
@@ -240,11 +222,9 @@ Phase 1 (DONE)
 Phase 2 (DONE)
     │
     ▼
-Phase 3a (per-notebook state)
-Phase 3b (interrupt)
-Phase 3c (error handling)
+Phase 3 (DONE) — per-notebook state, error handling
     │
-    ├──► Phase 4a (LM tools) ──► Phase 4b (MCP auto-detect)
+    ├──► Phase 4 (DONE) — LM tools, MCP auto-detect
     │
     └──► Phase 5a (debug notebook) ──► Phase 5b (debug from cell)
                                    ──► Phase 5c (AI debug tools)
@@ -255,8 +235,7 @@ Phase 6b (cross-cell LSP)
 Phase 6c (debug source mapping)
 ```
 
-Phases 2, 3, 4, and 5 can proceed somewhat in parallel — 2 and 3 have
-no dependency on 4 or 5. Phase 6 depends on all prior phases being stable.
+Phase 6 depends on all prior phases being stable.
 
 ---
 
@@ -266,7 +245,7 @@ no dependency on 4 or 5. Phase 6 depends on all prior phases being stable.
 |-------|--------|------------|
 | 1. Foundation | DONE | — |
 | 2. Rich output rendering | DONE | — |
-| 3. Bug fixes + polish | 2-3 days | 2-3 days |
-| 4. AI integration | 3-4 days | 5-7 days |
-| 5. Debugging | 4-5 days | 9-12 days |
-| 6. Polish + quality | 5-7 days | 14-19 days |
+| 3. Bug fixes + polish | DONE | — |
+| 4. AI integration | DONE | — |
+| 5. Debugging | 4-5 days | 4-5 days |
+| 6. Polish + quality | 5-7 days | 9-12 days |

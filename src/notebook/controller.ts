@@ -278,6 +278,26 @@ export class NotebookController {
     return sessionId;
   }
 
+  // ── Programmatic execution (for LM tools) ─────────────────────────
+
+  async executeCellByIndex(
+    notebook: vscode.NotebookDocument,
+    cellIndex: number,
+  ): Promise<void> {
+    if (cellIndex < 0 || cellIndex >= notebook.cellCount) {
+      throw new Error(
+        `Cell index ${cellIndex} out of range (0..${notebook.cellCount - 1})`,
+      );
+    }
+    const cell = notebook.cellAt(cellIndex);
+    if (cell.kind !== vscode.NotebookCellKind.Code) {
+      throw new Error(`Cell ${cellIndex} is a markup cell, not a code cell`);
+    }
+    const ctrlIndex =
+      notebook.notebookType === NOTEBOOK_TYPE ? 0 : 1;
+    await this.executeCell(cell, notebook, this.controllers[ctrlIndex]);
+  }
+
   // ── Kernel management ──────────────────────────────────────────────
 
   async restartKernel(notebook: vscode.NotebookDocument): Promise<void> {

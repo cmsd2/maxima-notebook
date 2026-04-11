@@ -26,6 +26,10 @@ export class McpProcessManager {
   private _generation = 0;
   private outputChannel: vscode.OutputChannel;
 
+  private readonly _onDidChangeRunning = new vscode.EventEmitter<void>();
+  readonly onDidChangeRunning: vscode.Event<void> =
+    this._onDidChangeRunning.event;
+
   constructor(outputChannel: vscode.OutputChannel) {
     this.outputChannel = outputChannel;
   }
@@ -55,6 +59,10 @@ export class McpProcessManager {
 
   getPort(): number | undefined {
     return this.port;
+  }
+
+  getToken(): string | undefined {
+    return this.token;
   }
 
   // ── Tool wrappers ──────────────────────────────────────────────────
@@ -102,6 +110,7 @@ export class McpProcessManager {
   // ── Lifecycle ──────────────────────────────────────────────────────
 
   async dispose(): Promise<void> {
+    const wasRunning = this._running;
     this._running = false;
     if (this.client) {
       try {
@@ -117,6 +126,9 @@ export class McpProcessManager {
     }
     this.port = undefined;
     this.token = undefined;
+    if (wasRunning) {
+      this._onDidChangeRunning.fire();
+    }
   }
 
   // ── Private ────────────────────────────────────────────────────────
@@ -164,6 +176,7 @@ export class McpProcessManager {
     this.process.on("exit", (code) => {
       this.outputChannel.appendLine(`aximar-mcp exited with code ${code}`);
       this._running = false;
+      this._onDidChangeRunning.fire();
     });
 
     // Wait for HTTP endpoint to become ready
@@ -194,6 +207,7 @@ export class McpProcessManager {
     }
 
     this._running = true;
+    this._onDidChangeRunning.fire();
     this.outputChannel.appendLine("Connected to aximar-mcp via MCP SDK");
   }
 
