@@ -1,6 +1,6 @@
 # Maxima Extension for VS Code
 
-VS Code extension for [Maxima](https://maxima.sourceforge.io/), a computer algebra system. Provides syntax highlighting, language server integration, interactive debugging, and a Run File command.
+VS Code extension for [Maxima](https://maxima.sourceforge.io/), a computer algebra system. Provides syntax highlighting, language server integration, interactive debugging, notebook support, and AI integration.
 
 ## Features
 
@@ -46,6 +46,31 @@ When the `maxima-dap` binary is installed, the extension provides interactive de
 - **Debug Console** — Evaluate arbitrary Maxima expressions while stopped at a breakpoint
 
 Requires Maxima with the **SBCL** Lisp backend. See the [maxima-dap documentation](https://github.com/cmsd2/aximar/blob/master/docs/maxima-dap.md) for details and known limitations.
+
+### Notebooks
+
+Interactive Maxima notebooks with rich output rendering. Create `.macnb` files or open `.ipynb` files with the Maxima kernel.
+
+- **Cell execution** — Run code cells sequentially with per-notebook session isolation
+- **KaTeX math** — LaTeX output rendered as typeset math (left-aligned)
+- **Plotly charts** — Interactive plots with VS Code theme integration
+- **SVG plots** — Native rendering for Maxima's SVG plot output
+- **Label rewriting** — Use `%` and `%oN` references across cells
+- **New File menu** — "Maxima Notebook" appears in File > New File
+- **`.macnb` files** — Default notebook format (opens automatically)
+- **`.ipynb` files** — Available via "Open With" picker alongside Jupyter
+
+Requires the `aximar-mcp` binary. The extension spawns and manages the process automatically, using an ephemeral port with bearer token authentication.
+
+### AI Integration
+
+AI agents (Copilot, Claude, etc.) can read and manipulate notebooks via Language Model tools:
+
+- **`maxima_notebook_get_cells`** — Read all cells with source, outputs, and execution state
+- **`maxima_notebook_run_cell`** — Execute a cell by index (output appears in the notebook)
+- **`maxima_notebook_add_cell`** — Insert a new code cell at any position
+
+The extension also auto-registers the managed `aximar-mcp` process as an MCP server, so AI agents can call `evaluate_expression` directly in the same Maxima session as the notebook. No manual configuration needed — just open a notebook.
 
 ### Run File
 
@@ -96,19 +121,19 @@ This puts `maxima-dap` on your PATH. The extension will find it automatically.
 
 You also need Maxima installed with the SBCL backend (the default on most installations). To verify: `maxima --version` should show a version string, and `maxima --lisp=sbcl -q --batch-string="quit();"` should exit without errors.
 
-### MCP Server
+### Installing aximar-mcp
 
-The extension can register a [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server so that VS Code, Copilot, and other AI agents can discover and use Maxima tools.
+The MCP server is required for notebook support. Without it, you still get syntax highlighting, language server features, debugging, and the Run File command.
 
-1. Set `maxima.mcp.enabled` to `true` in VS Code settings.
-2. Choose a transport:
-   - **HTTP** (default) — the extension connects to a running MCP server at the configured URL.
-   - **stdio** — the extension launches a local binary and communicates over stdin/stdout.
-3. If the server requires authentication, run the **Maxima: Set MCP Token** command from the command palette. The token is stored securely in your OS keychain and sent as a `Bearer` token in the `Authorization` header (HTTP transport only).
+Build from the [Aximar](https://github.com/cmsd2/aximar) repository:
 
-To remove a stored token, run **Maxima: Clear MCP Token**.
+```sh
+# If you already cloned aximar for maxima-lsp:
+cd aximar
+cargo install --path crates/aximar-mcp
+```
 
-To verify the server is registered and start it, run **MCP: List Servers** from the command palette. "Maxima MCP" should appear in the list. Select it and click **Start** to activate the connection.
+This puts `aximar-mcp` on your PATH. The extension spawns it automatically when you execute a notebook cell.
 
 ## Configuration
 
@@ -119,11 +144,9 @@ Open VS Code settings (Ctrl+, or Cmd+,) and search for "maxima":
 | `maxima.lsp.enabled` | `true` | Enable/disable the language server. |
 | `maxima.lsp.path` | `""` | Absolute path to the `maxima-lsp` binary. If empty, searches PATH. |
 | `maxima.dap.path` | `""` | Absolute path to the `maxima-dap` binary. If empty, searches PATH. |
-| `maxima.mcp.enabled` | `false` | Enable the MCP server. |
-| `maxima.mcp.transport` | `"http"` | Transport: `"http"` or `"stdio"`. |
-| `maxima.mcp.url` | `"http://localhost:8000/mcp"` | URL of the MCP server (HTTP transport). |
-| `maxima.mcp.path` | `""` | Absolute path to the MCP tool binary (stdio transport). |
-| `maxima.mcp.args` | `[]` | Command-line arguments for the MCP tool (stdio transport). |
+| `maxima.maximaPath` | `""` | Absolute path to the Maxima binary. Used by the debugger. If empty, searches PATH. |
+| `maxima.notebook.mcpPath` | `""` | Absolute path to the `aximar-mcp` binary. If empty, searches PATH. |
+| `maxima.notebook.evalTimeout` | `60` | Cell evaluation timeout in seconds. |
 
 ## Requirements
 
@@ -131,6 +154,7 @@ Open VS Code settings (Ctrl+, or Cmd+,) and search for "maxima":
 - **Maxima** (for Run File and debugging) — [download](https://maxima.sourceforge.io/download.html)
 - **maxima-lsp** (optional, for language server features) — see installation above
 - **maxima-dap** (optional, for debugging) — requires Maxima with SBCL backend, see installation above
+- **aximar-mcp** (optional, for notebooks) — see installation above
 
 ## License
 

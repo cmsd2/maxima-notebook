@@ -95,14 +95,6 @@
         "icon": "$(play)"
       },
       {
-        "command": "maxima.setMcpToken",
-        "title": "Maxima: Set MCP Token"
-      },
-      {
-        "command": "maxima.clearMcpToken",
-        "title": "Maxima: Clear MCP Token"
-      },
-      {
         "command": "maxima.notebook.restartKernel",
         "title": "Maxima: Restart Kernel",
         "icon": "$(debug-restart)"
@@ -176,38 +168,6 @@
           "default": "",
           "description": "Absolute path to the maxima binary. Used by the debugger. If empty, searches PATH."
         },
-        "maxima.mcp.enabled": {
-          "type": "boolean",
-          "default": false,
-          "description": "Enable the Maxima MCP server so that VS Code and AI agents can discover and use it."
-        },
-        "maxima.mcp.transport": {
-          "type": "string",
-          "enum": [
-            "stdio",
-            "http"
-          ],
-          "default": "http",
-          "description": "Transport used to communicate with the MCP server."
-        },
-        "maxima.mcp.path": {
-          "type": "string",
-          "default": "",
-          "description": "Absolute path to the MCP tool binary (stdio transport)."
-        },
-        "maxima.mcp.args": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "default": [],
-          "description": "Command-line arguments passed to the MCP tool (stdio transport)."
-        },
-        "maxima.mcp.url": {
-          "type": "string",
-          "default": "http://localhost:8000/mcp",
-          "description": "URL of the MCP server (http transport)."
-        },
         "maxima.notebook.mcpPath": {
           "type": "string",
           "default": "",
@@ -263,17 +223,22 @@
       {
         "name": "maxima_notebook_add_cell",
         "displayName": "Add Maxima Notebook Cell",
-        "modelDescription": "Add a new Maxima code cell to the active notebook. Optionally specify where to insert it. The cell is added but not executed — use maxima_notebook_run_cell to execute it after adding.",
+        "modelDescription": "Add a new cell to the active Maxima notebook. Defaults to a code cell. Set kind to \"markdown\" for documentation/notes. The cell is added but not executed — use maxima_notebook_run_cell to execute code cells after adding.",
         "inputSchema": {
           "type": "object",
           "properties": {
             "source": {
               "type": "string",
-              "description": "The Maxima source code for the new cell"
+              "description": "The content for the new cell (Maxima code or markdown text)"
             },
             "afterIndex": {
               "type": "number",
               "description": "Insert after this cell index (0-based). If omitted, appends at the end."
+            },
+            "kind": {
+              "type": "string",
+              "enum": ["code", "markdown"],
+              "description": "Cell type: \"code\" (default) for Maxima code, \"markdown\" for rich text."
             }
           },
           "required": ["source"],

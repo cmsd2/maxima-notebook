@@ -21,6 +21,7 @@ interface RunCellInput {
 interface AddCellInput {
   source: string;
   afterIndex?: number;
+  kind?: "code" | "markdown";
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────
@@ -227,10 +228,11 @@ class AddCellTool implements vscode.LanguageModelTool<AddCellInput> {
       insertAt = notebook.cellCount;
     }
 
+    const isMarkdown = options.input.kind === "markdown";
     const cellData = new vscode.NotebookCellData(
-      vscode.NotebookCellKind.Code,
+      isMarkdown ? vscode.NotebookCellKind.Markup : vscode.NotebookCellKind.Code,
       source,
-      "maxima",
+      isMarkdown ? "markdown" : "maxima",
     );
     const edit = new vscode.WorkspaceEdit();
     edit.set(notebook.uri, [

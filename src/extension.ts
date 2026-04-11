@@ -77,30 +77,6 @@ export async function activate(
     }),
   );
 
-  // --- MCP token commands ---
-  const MCP_TOKEN_KEY = "maxima.mcp.token";
-  context.subscriptions.push(
-    vscode.commands.registerCommand("maxima.setMcpToken", async () => {
-      const token = await vscode.window.showInputBox({
-        prompt: "Enter the authorization token for the Maxima MCP server",
-        password: true,
-        ignoreFocusOut: true,
-      });
-      if (token !== undefined) {
-        await context.secrets.store(MCP_TOKEN_KEY, token);
-        mcpChanged.fire();
-        vscode.window.showInformationMessage("Maxima MCP token saved.");
-      }
-    }),
-  );
-  context.subscriptions.push(
-    vscode.commands.registerCommand("maxima.clearMcpToken", async () => {
-      await context.secrets.delete(MCP_TOKEN_KEY);
-      mcpChanged.fire();
-      vscode.window.showInformationMessage("Maxima MCP token cleared.");
-    }),
-  );
-
   // --- Notebook support ---
   const notebookOutput = vscode.window.createOutputChannel("Maxima Notebook");
   context.subscriptions.push(notebookOutput);
@@ -180,71 +156,23 @@ export async function activate(
     vscode.lm.registerMcpServerDefinitionProvider("maxima.mcpServer", {
       onDidChangeMcpServerDefinitions: mcpChanged.event,
       provideMcpServerDefinitions() {
-        const defs: vscode.McpServerDefinition[] = [];
-
-        // Auto-detected managed process (from notebook)
-        if (mcpManager?.isRunning()) {
-          const port = mcpManager.getPort();
-          if (port) {
-            defs.push(
-              new vscode.McpHttpServerDefinition(
-                "Maxima Notebook",
-                vscode.Uri.parse(`http://localhost:${port}/mcp`),
-              ),
-            );
-          }
+        if (!mcpManager?.isRunning()) {
+          return [];
         }
-
-        // User-configured server
-        const cfg = vscode.workspace.getConfiguration("maxima");
-        const enabled = cfg.get<boolean>("mcp.enabled", false);
-        if (enabled) {
-          const transport = cfg.get<string>("mcp.transport", "http");
-          if (transport === "http") {
-            const url = cfg
-              .get<string>("mcp.url", "http://localhost:8000/mcp")
-              .trim();
-            if (url) {
-              defs.push(
-                new vscode.McpHttpServerDefinition(
-                  "Maxima MCP",
-                  vscode.Uri.parse(url),
-                ),
-              );
-            }
-          } else {
-            const mcpPath = cfg.get<string>("mcp.path", "").trim();
-            if (mcpPath) {
-              const mcpArgs = cfg.get<string[]>("mcp.args", []);
-              defs.push(
-                new vscode.McpStdioServerDefinition(
-                  "Maxima MCP",
-                  mcpPath,
-                  mcpArgs,
-                ),
-              );
-            }
-          }
+        const port = mcpManager.getPort();
+        if (!port) {
+          return [];
         }
-
-        return defs;
+        return [
+          new vscode.McpHttpServerDefinition(
+            "Maxima Notebook",
+            vscode.Uri.parse(`http://localhost:${port}/mcp`),
+          ),
+        ];
       },
-      async resolveMcpServerDefinition(server) {
+      resolveMcpServerDefinition(server) {
         if (server instanceof vscode.McpHttpServerDefinition) {
-          // Managed process — inject its ephemeral token
-          if (server.label === "Maxima Notebook" && mcpManager?.isRunning()) {
-            const managedToken = mcpManager.getToken();
-            if (managedToken) {
-              server.headers = {
-                ...server.headers,
-                Authorization: `Bearer ${managedToken}`,
-              };
-            }
-            return server;
-          }
-
-          // User-configured server — use stored secret
-          const token = await context.secrets.get(MCP_TOKEN_KEY);
+          const token = mcpManager?.getToken();
           if (token) {
             server.headers = {
               ...server.headers,
@@ -254,13 +182,6 @@ export async function activate(
         }
         return server;
       },
-    }),
-  );
-  context.subscriptions.push(
-    vscode.workspace.onDidChangeConfiguration((e) => {
-      if (e.affectsConfiguration("maxima.mcp")) {
-        mcpChanged.fire();
-      }
     }),
   );
 
