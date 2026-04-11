@@ -1,0 +1,35 @@
+/* LaTeX output */
+.maxima-latex-output {
+  padding: 12px 16px;
+  overflow-x: auto;
+  font-size: 1.15em;
+  line-height: 1.6;
+}
+
+.maxima-latex-output .katex-display {
+  margin: 0;
+  text-align: left;
+}
+
+.maxima-latex-output .katex-display > .katex {
+  text-align: left;
+}
+
+/* Plotly output */
+.maxima-plotly-output {
+  padding: 8px;
+  border-radius: 4px;
+}
+
+/* Text output */
+.maxima-text-output pre {
+  font-family: var(--vscode-editor-font-family);
+  font-size: var(--vscode-editor-font-size);
+  line-height: var(--vscode-editor-line-height);
+  color: var(--vscode-editor-foreground);
+  background: transparent;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  margin: 0;
+  padding: 8px 12px;
+}

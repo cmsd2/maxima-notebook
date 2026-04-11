@@ -131,8 +131,13 @@ export class NotebookController {
     }
 
     if (result.latex) {
-      // Phase 1: show LaTeX as plain text fallback
-      // Phase 2 will add application/x-maxima-latex for KaTeX rendering
+      items.push(
+        vscode.NotebookCellOutputItem.text(
+          result.latex,
+          "application/x-maxima-latex",
+        ),
+      );
+      // Plain text fallback for environments without the renderer
       if (!result.text_output) {
         items.push(
           vscode.NotebookCellOutputItem.text(result.latex, "text/plain"),
@@ -156,10 +161,14 @@ export class NotebookController {
       );
     }
 
-    // Plotly data — Phase 1 dumps as JSON text, Phase 3 adds renderer
+    // Plotly data — interactive chart via custom renderer
     if (result.plot_data) {
       outputs.push(
         new vscode.NotebookCellOutput([
+          vscode.NotebookCellOutputItem.text(
+            result.plot_data,
+            "application/x-maxima-plotly",
+          ),
           vscode.NotebookCellOutputItem.text(result.plot_data, "text/plain"),
         ]),
       );

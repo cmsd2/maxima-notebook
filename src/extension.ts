@@ -127,6 +127,15 @@ export async function activate(
   );
 
   context.subscriptions.push(
+    vscode.commands.registerCommand("maxima.notebook.new", async () => {
+      const newDoc = await vscode.workspace.openNotebookDocument(
+        NOTEBOOK_TYPE,
+      );
+      await vscode.window.showNotebookDocument(newDoc);
+    }),
+  );
+
+  context.subscriptions.push(
     vscode.commands.registerCommand("maxima.notebook.restartKernel", () => {
       const notebook = vscode.window.activeNotebookEditor?.notebook;
       if (notebook && notebook.notebookType === NOTEBOOK_TYPE) {

@@ -28,13 +28,19 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0",
+    "katex": "^0.16.45",
+    "plotly.js-dist-min": "^3.5.0",
     "vscode-languageclient": "^9.0.1"
   },
   "devDependencies": {
-    "@types/vscode": "^1.82.0",
+    "@types/katex": "^0.16.8",
     "@types/node": "^20.0.0",
+    "@types/plotly.js": "^3.0.10",
+    "@types/vscode": "^1.82.0",
+    "@types/vscode-notebook-renderer": "^1.72.4",
+    "esbuild": "^0.21.0",
     "typescript": "^5.5.0",
-    "esbuild": "^0.21.0"
+    "vscode-notebook-renderer": "^0.0.1-security"
   },
   "contributes": {
     "notebooks": [
@@ -42,22 +48,45 @@
         "type": "maxima-notebook",
         "displayName": "Maxima Notebook",
         "selector": [
-          { "filenamePattern": "*.ipynb" }
+          {
+            "filenamePattern": "*.macnb"
+          }
+        ],
+        "priority": "default"
+      },
+      {
+        "type": "maxima-notebook",
+        "displayName": "Maxima Notebook",
+        "selector": [
+          {
+            "filenamePattern": "*.ipynb"
+          }
         ],
         "priority": "option"
       }
     ],
-    "languages": [{
-      "id": "maxima",
-      "aliases": ["Maxima", "maxima"],
-      "extensions": [".mac", ".max", ".wxm"],
-      "configuration": "./language-configuration.json"
-    }],
-    "grammars": [{
-      "language": "maxima",
-      "scopeName": "source.maxima",
-      "path": "./syntaxes/maxima.tmLanguage.json"
-    }],
+    "languages": [
+      {
+        "id": "maxima",
+        "aliases": [
+          "Maxima",
+          "maxima"
+        ],
+        "extensions": [
+          ".mac",
+          ".max",
+          ".wxm"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "maxima",
+        "scopeName": "source.maxima",
+        "path": "./syntaxes/maxima.tmLanguage.json"
+      }
+    ],
     "commands": [
       {
         "command": "maxima.runFile",
@@ -81,6 +110,11 @@
         "command": "maxima.notebook.interruptKernel",
         "title": "Maxima: Interrupt Kernel",
         "icon": "$(debug-stop)"
+      },
+      {
+        "command": "maxima.notebook.new",
+        "title": "Maxima Notebook",
+        "shortTitle": "Maxima Notebook"
       }
     ],
     "menus": {
@@ -103,6 +137,12 @@
           "command": "maxima.notebook.restartKernel",
           "when": "notebookType == 'maxima-notebook'",
           "group": "navigation"
+        }
+      ],
+      "file/newFile": [
+        {
+          "command": "maxima.notebook.new",
+          "group": "notebook"
         }
       ],
       "commandPalette": [
@@ -142,7 +182,10 @@
         },
         "maxima.mcp.transport": {
           "type": "string",
-          "enum": ["stdio", "http"],
+          "enum": [
+            "stdio",
+            "http"
+          ],
           "default": "http",
           "description": "Transport used to communicate with the MCP server."
         },
@@ -153,7 +196,9 @@
         },
         "maxima.mcp.args": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "default": [],
           "description": "Command-line arguments passed to the MCP tool (stdio transport)."
         },
@@ -167,13 +212,26 @@
           "default": "",
           "description": "Path to aximar-mcp binary. If empty, searches PATH."
         },
-"maxima.notebook.evalTimeout": {
+        "maxima.notebook.evalTimeout": {
           "type": "number",
           "default": 60,
           "description": "Cell evaluation timeout in seconds."
         }
       }
     },
+    "notebookRenderer": [
+      {
+        "id": "maxima-notebook-renderer",
+        "displayName": "Maxima Notebook Renderer",
+        "entrypoint": "./out/renderers/maxima/index.js",
+        "mimeTypes": [
+          "application/x-maxima-latex",
+          "application/x-maxima-plotly",
+          "application/x-maxima-output"
+        ],
+        "requiresMessaging": "never"
+      }
+    ],
     "mcpServerDefinitionProviders": [
       {
         "id": "maxima.mcpServer",
@@ -188,11 +246,15 @@
     "debuggers": [
       {
         "type": "maxima",
-        "languages": ["maxima"],
+        "languages": [
+          "maxima"
+        ],
         "label": "Maxima Debug",
         "configurationAttributes": {
           "launch": {
-            "required": ["program"],
+            "required": [
+              "program"
+            ],
             "properties": {
               "program": {
                 "type": "string",

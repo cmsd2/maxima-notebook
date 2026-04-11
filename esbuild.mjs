@@ -3,7 +3,8 @@ import * as esbuild from "esbuild";
 const production = process.argv.includes("--production");
 const watch = process.argv.includes("--watch");
 
-const ctx = await esbuild.context({
+// Extension host (Node.js, CommonJS)
+const extCtx = await esbuild.context({
   entryPoints: ["src/extension.ts"],
   bundle: true,
   format: "cjs",
@@ -16,9 +17,29 @@ const ctx = await esbuild.context({
   logLevel: "info",
 });
 
+// Notebook renderer (browser, ES modules)
+const rendererCtx = await esbuild.context({
+  entryPoints: ["src/renderers/maxima/index.ts"],
+  bundle: true,
+  format: "esm",
+  minify: production,
+  sourcemap: !production,
+  sourcesContent: false,
+  platform: "browser",
+  outfile: "out/renderers/maxima/index.js",
+  external: [],
+  logLevel: "info",
+  loader: {
+    ".css": "css",
+    ".woff2": "file",
+    ".woff": "file",
+    ".ttf": "file",
+  },
+});
+
 if (watch) {
-  await ctx.watch();
+  await Promise.all([extCtx.watch(), rendererCtx.watch()]);
 } else {
-  await ctx.rebuild();
-  await ctx.dispose();
+  await Promise.all([extCtx.rebuild(), rendererCtx.rebuild()]);
+  await Promise.all([extCtx.dispose(), rendererCtx.dispose()]);
 }
