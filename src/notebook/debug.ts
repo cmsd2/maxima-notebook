@@ -147,21 +147,36 @@ function mappingForCellUri(
   return activeCellMappings?.find((m) => m.cellUri === cellUri);
 }
 
-/** Find the mapping entry that contains a given temp-file line. */
+/** Find the mapping entry that contains a given temp-file line.
+ *  Falls back to the nearest cell if the line is between cells
+ *  (e.g. on a comment or separator line). */
 function mappingForTempLine(
   tempLine: number,
 ): CellLineMapping | undefined {
-  if (!activeCellMappings) {
+  if (!activeCellMappings || activeCellMappings.length === 0) {
     return undefined;
   }
-  // Walk in reverse so the last cell whose startLine <= tempLine wins.
+  // Exact match: line falls within a cell's range.
   for (let i = activeCellMappings.length - 1; i >= 0; i--) {
     const m = activeCellMappings[i];
     if (tempLine >= m.startLine && tempLine < m.startLine + m.lineCount) {
       return m;
     }
   }
-  return undefined;
+  // Nearest: find the closest cell (handles comment/separator lines).
+  let best: CellLineMapping | undefined;
+  let bestDist = Infinity;
+  for (const m of activeCellMappings) {
+    const cellEnd = m.startLine + m.lineCount - 1;
+    const dist = tempLine < m.startLine
+      ? m.startLine - tempLine
+      : tempLine - cellEnd;
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = m;
+    }
+  }
+  return best;
 }
 
 /** Convert a temp-file line number to a cell-relative line number. */
@@ -228,6 +243,10 @@ interface DapStackFrame {
 class NotebookDebugAdapterTracker implements vscode.DebugAdapterTracker {
   /** Maps request_seq of rewritten setBreakpoints → original cell URI. */
   private pendingBreakpointRequests = new Map<number, string>();
+
+  /** Maps DAP breakpoint ID → cell mapping, so breakpoint-changed events
+   *  can always be rewritten even when the line has been snapped. */
+  private breakpointIdToMapping = new Map<number, CellLineMapping>();
 
   // ── Outgoing: VS Code → adapter ───────────────────────────────────
 
@@ -304,6 +323,10 @@ class NotebookDebugAdapterTracker implements vscode.DebugAdapterTracker {
     }
 
     for (const bp of breakpoints) {
+      // Track breakpoint ID → cell mapping for future breakpoint events.
+      if (typeof bp.id === "number") {
+        this.breakpointIdToMapping.set(bp.id, mapping);
+      }
       if (bp.source && bp.source.path === activeTempFile) {
         bp.source.path = cellUri;
         bp.source.name = `Cell ${mapping.cellIndex + 1}`;
@@ -338,11 +361,22 @@ class NotebookDebugAdapterTracker implements vscode.DebugAdapterTracker {
     if (!bp || bp.source?.path !== activeTempFile) {
       return;
     }
-    if (typeof bp.line === "number") {
-      const mapping = mappingForTempLine(bp.line);
-      if (mapping) {
-        bp.source!.path = mapping.cellUri;
-        bp.source!.name = `Cell ${mapping.cellIndex + 1}`;
+
+    // Primary: look up by breakpoint ID (reliable even when line is snapped).
+    const idMapping = typeof bp.id === "number"
+      ? this.breakpointIdToMapping.get(bp.id)
+      : undefined;
+
+    // Fallback: look up by temp-file line number.
+    const lineMapping = typeof bp.line === "number"
+      ? mappingForTempLine(bp.line)
+      : undefined;
+
+    const mapping = idMapping ?? lineMapping;
+    if (mapping) {
+      bp.source!.path = mapping.cellUri;
+      bp.source!.name = `Cell ${mapping.cellIndex + 1}`;
+      if (typeof bp.line === "number") {
         bp.line = tempLineToCell(mapping, bp.line);
       }
     }
@@ -392,6 +426,14 @@ async function launchDebugSession(
     const message = err instanceof Error ? err.message : String(err);
     vscode.window.showErrorMessage(message);
     return;
+  }
+
+  // Resolve to the real path so it matches Maxima's canonical output
+  // (e.g. macOS /var → /private/var symlink resolution).
+  try {
+    tempFilePath = await fs.realpath(tempFilePath);
+  } catch {
+    // If realpath fails, keep the original path.
   }
 
   activeTempFile = tempFilePath;
