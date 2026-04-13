@@ -35,8 +35,6 @@ notebook in VS Code.
 
 | Component | Planned File | Description |
 |-----------|-------------|-------------|
-| Debug integration | `src/notebook/debug.ts` | Write cells to temp file, launch maxima-dap |
-| AI debug tools | `src/notebook/lmTools.ts` | Debug inspection tools (`variables`, `evaluate`, `callstack`) |
 | Tests | — | Zero test coverage for notebook code |
 
 ---
@@ -127,54 +125,43 @@ Enable VS Code Copilot and other AI agents to read and manipulate notebooks.
 
 ---
 
-## Phase 5: Notebook Debugging
+## Phase 5: Notebook Debugging (DONE)
 
-Enable debugging Maxima code defined in notebook cells.
+Debugging Maxima code defined in notebook cells.
 
-### 5a: Debug Notebook Command
+### 5a: Debug Notebook Command (DONE)
 
-**File to create:** `src/notebook/debug.ts`
+- [x] `src/notebook/debug.ts` — concatenates code cells to temp `.mac` file
+- [x] Cell line mappings track cell index → start line in temp file
+- [x] `vscode.debug.startDebugging()` launches maxima-dap against temp file
+- [x] Temp file cleanup on session end, state preserved for restart
+- [x] Debug restart regenerates temp file from current cell contents
+- [x] `package.json` — `maxima.notebook.debugNotebook` command + toolbar button
 
-**Files to modify:**
-- `package.json` — add `maxima.notebook.debugNotebook` command + toolbar button
-- `src/extension.ts` — register command
+### 5b: Debug From Cell Command (DONE)
 
-**Work:**
-1. Concatenate all code cells into a temp `.mac` file with cell markers
-2. Track line offset mapping (cell index → start line in temp file)
-3. Launch `vscode.debug.startDebugging()` with maxima-dap config
-4. Handle cleanup (delete temp file on session end)
+- [x] Right-click cell → "Debug From This Cell" (cell title context menu)
+- [x] Only cells up to the selected cell are included in the temp file
 
-**Acceptance criteria:**
-- "Debug Notebook" button appears in notebook toolbar
-- Breakpoints in function definitions work
-- Variables panel shows function args and block locals
-- Step over/into/continue work
-- Debug console allows evaluating expressions at breakpoints
+### 5c: AI Debug Tools (DONE)
 
-### 5b: Debug From Cell Command
+- [x] `maxima_debug_variables` — get variables from current stack frame
+- [x] `maxima_debug_evaluate` — evaluate expression at breakpoint
+- [x] `maxima_debug_callstack` — get current call stack
+- [x] All three registered via `vscode.lm.registerTool()` in `debug.ts`
 
-Add cell-level context menu command that debugs from the start of the
-notebook up to and including the selected cell.
+### 5d: Debug Source Mapping (DONE)
 
-**Acceptance criteria:**
-- Right-click cell → "Debug From This Cell"
-- Only cells up to the selected cell are included in the temp file
+- [x] `DebugAdapterTracker` intercepts DAP messages for source remapping
+- [x] `setBreakpoints` requests: cell URI → temp file, cell lines → temp lines
+- [x] `setBreakpoints` responses: temp file → cell URI, temp lines → cell lines
+- [x] `stackTrace` responses: temp file frames → cell URIs
+- [x] `breakpoint` events: verified/changed breakpoints remapped to cell URIs
+- [x] Breakpoint ID tracking for reliable event remapping
+- [x] Unrelated notebook cell breakpoints suppressed to prevent interference
 
-### 5c: AI Debug Tools
-
-Add LM tools for AI-assisted debugging.
-
-| Tool | Input | Description |
-|------|-------|-------------|
-| `maxima_debug_variables` | `{}` | Get variables from current stack frame |
-| `maxima_debug_evaluate` | `{ expression }` | Evaluate at breakpoint |
-| `maxima_debug_callstack` | `{}` | Get current call stack |
-
-**Acceptance criteria:**
-- AI can read variable values during a debug session
-- AI can evaluate test expressions at breakpoints
-- AI can explain the call chain leading to a breakpoint
+**Result:** Breakpoints appear inline in notebook cells. Stack traces
+during stepping show cell locations. Loaded `.mac` files show directly.
 
 ---
 
@@ -205,12 +192,6 @@ as a single document.
 implementation is complex. Consider whether the value justifies the effort
 vs. the 2500+ built-in function completions that already work.
 
-### 6c: Source Mapping for Debug
-
-Use `vscode.debug.registerDebugAdapterTrackerFactory` to translate source
-locations from the temp file back to notebook cell URIs, so breakpoints
-appear inline in notebook cells rather than in the temp file.
-
 ---
 
 ## Dependency Graph
@@ -226,13 +207,12 @@ Phase 3 (DONE) — per-notebook state, error handling
     │
     ├──► Phase 4 (DONE) — LM tools, MCP auto-detect
     │
-    └──► Phase 5a (debug notebook) ──► Phase 5b (debug from cell)
-                                   ──► Phase 5c (AI debug tools)
+    └──► Phase 5 (DONE) — debug notebook, debug from cell, AI debug tools,
+                           source mapping
     │
     ▼
 Phase 6a (tests)
 Phase 6b (cross-cell LSP)
-Phase 6c (debug source mapping)
 ```
 
 Phase 6 depends on all prior phases being stable.
@@ -247,5 +227,5 @@ Phase 6 depends on all prior phases being stable.
 | 2. Rich output rendering | DONE | — |
 | 3. Bug fixes + polish | DONE | — |
 | 4. AI integration | DONE | — |
-| 5. Debugging | 4-5 days | 4-5 days |
-| 6. Polish + quality | 5-7 days | 9-12 days |
+| 5. Debugging | DONE | — |
+| 6. Polish + quality | 5-7 days | 5-7 days |

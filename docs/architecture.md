@@ -102,9 +102,15 @@ to the LSP when editing cell 3).
 
 Spawned per debug session. Each session gets its own Maxima process.
 
+At launch, maxima-dap probes the Maxima process for Enhanced debugger support
+(patched Maxima with `set_breakpoint`). If detected, it uses **Enhanced mode**
+with file:line breakpoints and deferred resolution. Otherwise it falls back to
+**Legacy mode** with function+offset breakpoints.
+
 For notebook debugging, the extension writes notebook cells to a temp `.mac`
-file and launches maxima-dap against it. This is a separate Maxima process
-from the notebook's evaluation session. See [debugging.md](debugging.md)
+file and launches maxima-dap against it. A `DebugAdapterTracker` remaps
+source locations between cell URIs and the temp file so breakpoints and
+stack frames appear inline in notebook cells. See [debugging.md](debugging.md)
 for details.
 
 ## Data Flow: Cell Execution
@@ -182,18 +188,27 @@ User clicks "Debug Notebook"
         ▼
 Extension (debug.ts)
   1. Read all code cells from active notebook
-  2. Concatenate to temp .mac file (tracking line offsets)
+  2. Concatenate to temp .mac file (tracking cell→line mappings)
   3. vscode.debug.startDebugging({ type: "maxima", program: tempFile })
+  4. Register DebugAdapterTracker for source remapping
         │
         ▼
 maxima-dap (spawned by VS Code)
-  1. Spawns fresh Maxima process
-  2. Loads temp .mac file (batchload)
-  3. Sets breakpoints (function definitions, loaded .mac files)
-  4. Executes code
+  1. Spawns fresh Maxima process (Enhanced or Legacy mode)
+  2. Sets deferred breakpoints (Enhanced) or loads then sets (Legacy)
+  3. Batchloads temp .mac file — deferred breakpoints resolve
+  4. Captures breakpoint resolutions from execution output
+  5. Sends breakpoint-changed events with resolved line numbers
+        │
+        ▼
+DebugAdapterTracker (in debug.ts)
+  Outgoing: cell URI → temp file path, cell lines → temp lines
+  Incoming: temp file → cell URI, temp lines → cell lines
+  Breakpoint events matched by ID → cell mapping
         │
         ▼
 User interacts via VS Code Debug UI
+  - Breakpoints appear inline in notebook cells
   - Step Over (F10), Step Into (F11), Continue (F5)
   - Variables panel, Watch expressions, Call stack
   - Debug console (evaluate expressions at breakpoint)
@@ -231,7 +246,7 @@ The `activate()` function registers all components:
 | `src/notebook/labels.ts` | Label rewriting (`%` and `%oN` resolution) |
 | `src/notebook/types.ts` | Shared TypeScript interfaces |
 | `src/notebook/lmTools.ts` | AI-facing LM tool implementations |
-| `src/notebook/debug.ts` | Debug Notebook command, temp file generation |
+| `src/notebook/debug.ts` | Debug commands, temp file generation, DAP tracker, AI debug tools |
 | `src/renderers/maxima/index.ts` | Custom renderer (KaTeX, Plotly) |
 | `src/renderers/maxima/style.css` | Renderer styling |
 

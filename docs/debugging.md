@@ -116,12 +116,40 @@ g(5);
 Cell markers include the cell index and the starting line number for
 debugging reference.
 
+## Debugger Modes
+
+maxima-dap supports two modes, detected automatically at launch:
+
+| Mode | Detection | Breakpoint style |
+|------|-----------|-----------------|
+| **Enhanced** | Patched Maxima with `set_breakpoint` function | `:break "file.mac" LINE` — file:line breakpoints with deferred resolution |
+| **Legacy** | Stock Maxima | `:break func offset` — function+offset breakpoints |
+
+Enhanced mode is the recommended path. It supports **deferred breakpoints**
+(set before the file is loaded, resolved during `batchload`), line-snapping,
+and canonical file paths for stack frames.
+
+### Breakpoint resolution
+
+When Enhanced Maxima resolves a deferred breakpoint, it prints a message
+with the full file path:
+
+```
+Bkpt 0 for $g (in /Users/chris/debug.mac line 2)
+```
+
+maxima-dap captures these resolution messages from execution output (during
+`batchload`, `:resume`, `:next`, `:step`) and matches them back to the
+stored DAP breakpoints by file path and line proximity. This avoids a
+separate `:info :bkpt` query and provides exact file matching (no suffix
+heuristics).
+
 ## What Works
 
 ### Breakpoints in Function Definitions
 
 Maxima supports breakpoints inside `block()` bodies. Users set breakpoints
-in the temp file (or in loaded `.mac` files) on lines inside function
+in notebook cells (or in loaded `.mac` files) on lines inside function
 definitions.
 
 ```maxima
@@ -143,6 +171,9 @@ are loaded into the Maxima session. Users set breakpoints in `mylib.mac`
 directly (it's a regular `.mac` file), and those breakpoints fire when the
 functions are called from the temp file.
 
+In Enhanced mode, breakpoints in loaded files use deferred resolution —
+they are set before `batchload` and resolve when Maxima loads the file.
+
 ### Stepping
 
 | Action | Shortcut | Description |
@@ -158,6 +189,51 @@ Step Out is not supported (Maxima debugger limitation).
 The debug console allows evaluating expressions at the current breakpoint.
 This uses maxima-dap's evaluate handler, which runs expressions in the
 Maxima debugger context.
+
+### Debug Restart
+
+The debug session can be restarted (toolbar button or F5 after termination).
+On restart:
+- The temp file is regenerated from the current notebook cells (picking up edits)
+- The cell line mappings are refreshed
+- A new Maxima process is spawned, but the debug UI stays in the same session
+
+## Source Mapping
+
+A `DebugAdapterTracker` intercepts DAP messages to remap source locations
+between notebook cell URIs and the temp `.mac` file.
+
+### Outgoing (VS Code → adapter)
+
+- `setBreakpoints` for a notebook cell URI → rewrites source path to the
+  temp file and converts cell-relative line numbers to temp-file lines
+
+### Incoming (adapter → VS Code)
+
+- `setBreakpoints` response → rewrites source paths back to cell URIs,
+  converts temp-file lines back to cell-relative lines
+- `stackTrace` response → rewrites frame sources to cell URIs
+- `breakpoint` event (e.g. deferred breakpoint verified) → rewrites to
+  cell URI using the stored breakpoint-ID-to-cell mapping
+
+### Breakpoint ID tracking
+
+The tracker maintains:
+- `breakpointIdToMapping` — maps DAP breakpoint ID → cell mapping, so
+  breakpoint-changed events always find the right cell
+- `breakpointIdToCellLine` — maps DAP breakpoint ID → original cell-relative
+  line (from the setBreakpoints response), used as the authoritative line
+  for breakpoint events
+
+This means breakpoints appear inline in notebook cells. When stepping into
+a loaded `.mac` file, the stack trace shows the `.mac` file directly (no
+remapping needed).
+
+### Unrelated notebook cells
+
+When a user has breakpoints set in cells from a different notebook (or
+non-code cells), the tracker clears those breakpoint requests to prevent
+cross-notebook interference with deferred breakpoint matching.
 
 ## Limitations
 
@@ -185,17 +261,6 @@ cannot set breakpoints on:
 
 maxima-dap handles this gracefully — breakpoints on unsupported lines are
 marked as "unverified."
-
-### Source Mapping
-
-For the initial implementation, the debug session shows the temp file. The
-user sees the same code as in their notebook cells, just concatenated into
-one file with cell markers.
-
-**Future improvement:** Use `vscode.debug.registerDebugAdapterTrackerFactory`
-to intercept DAP messages and translate source locations from temp file
-lines back to notebook cell URIs. This would allow breakpoints to appear
-inline in the notebook cell view rather than in the temp file.
 
 ## AI Debug Tools
 
