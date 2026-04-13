@@ -1,5 +1,9 @@
 # Change Log
 
+## [Unreleased]
+### Fixed
+- Notebook debugging: breakpoints in unsaved (untitled) notebooks are now preserved when the notebook is saved at debug launch time. The extension saves the notebook before generating the temp file and migrates breakpoints from old untitled cell URIs to new file-backed cell URIs automatically.
+
 ## [0.1.0]
 ### Added
 - Language server client for `maxima-lsp` — completions, hover, signature help, go-to-definition, find references, document/workspace symbols, diagnostics, folding

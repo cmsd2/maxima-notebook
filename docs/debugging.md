@@ -339,6 +339,40 @@ return new LanguageModelToolResult([
 ]);
 ```
 
+## Unsaved (Untitled) Notebooks
+
+When debugging an unsaved notebook, VS Code needs stable file-backed cell URIs
+so breakpoints can be correctly mapped to the temp `.mac` file. The extension
+handles this automatically:
+
+1. User sets breakpoints in cells of an untitled notebook
+2. User clicks "Debug Notebook"
+3. The extension calls `vscode.workspace.save()` before generating the temp
+   file — VS Code shows a Save As dialog
+4. After saving, the notebook URI changes from `untitled:Untitled-1.macnb` to
+   `file:///path/to/saved.macnb`, and all cell URIs change accordingly
+5. Orphaned breakpoints (still referencing old untitled cell URIs) are
+   automatically migrated to the new file-backed cell URIs
+6. The temp file is generated using the new stable cell URIs
+7. The debug session starts normally
+
+### Breakpoint migration
+
+The `migrateOrphanedBreakpoints()` function runs at debug launch time for
+previously-untitled notebooks. It:
+
+- Collects cell URIs from all currently-open notebooks
+- Finds breakpoints on `vscode-notebook-cell:` URIs that don't match any open
+  notebook (orphaned)
+- Groups orphaned breakpoints by notebook prefix
+- Only migrates groups from untitled notebooks (detected by the absence of a
+  leading `/` after the `vscode-notebook-cell:` scheme)
+- Maps old cell URIs to new cell URIs by index order (cell order is preserved
+  across save)
+
+This avoids accidentally stealing breakpoints from other closed file-backed
+notebooks.
+
 ## Example Debug Workflow
 
 1. User has a notebook with:

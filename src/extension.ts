@@ -144,7 +144,6 @@ export async function activate(
       }
     }),
   );
-
   context.subscriptions.push(
     vscode.commands.registerCommand("maxima.notebook.new", async () => {
       const newDoc = await vscode.workspace.openNotebookDocument(
