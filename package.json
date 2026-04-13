@@ -8,13 +8,30 @@
   },
   "categories": [
     "Programming Languages",
-    "Debuggers"
+    "Debuggers",
+    "Notebooks"
+  ],
+  "keywords": [
+    "maxima",
+    "computer algebra",
+    "CAS",
+    "notebook",
+    "mathematics",
+    "debugger",
+    "language server"
   ],
   "publisher": "OhtaYasuhiro",
+  "author": "Yasuhiro Ohta",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/yshl/maxima-extension.git"
   },
+  "bugs": {
+    "url": "https://github.com/yshl/maxima-extension/issues"
+  },
+  "homepage": "https://github.com/yshl/maxima-extension#readme",
+  "icon": "icon.png",
   "main": "./out/extension.js",
   "activationEvents": [
     "onNotebook:maxima-notebook",
@@ -118,6 +135,10 @@
         "command": "maxima.notebook.debugFromCell",
         "title": "Maxima: Debug From This Cell",
         "icon": "$(debug-alt)"
+      },
+      {
+        "command": "maxima.downloadTools",
+        "title": "Maxima: Download/Update Tools"
       }
     ],
     "menus": {
