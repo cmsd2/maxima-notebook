@@ -16,8 +16,8 @@ import {
   debugNotebook,
   debugFromCell,
   registerDebugAdapterTracker,
+  registerDebugLmTools,
 } from "./notebook/debug";
-import { registerDebugLmTools } from "./notebook/debugLmTools";
 import { BinaryManager } from "./binaryManager";
 
 let client: LanguageClient | undefined;

@@ -5,6 +5,39 @@
  * unit-tested without mocking the VS Code API.
  */
 
+// ── DAP message types (minimal shapes) ──────────────────────────────
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+export interface DapSource {
+  name?: string;
+  path?: string;
+  sourceReference?: number;
+  [key: string]: any;
+}
+
+export interface DapBreakpoint {
+  id?: number;
+  verified?: boolean;
+  message?: string;
+  source?: DapSource;
+  line?: number;
+  [key: string]: any;
+}
+
+export interface DapStackFrame {
+  id: number;
+  name: string;
+  source?: DapSource;
+  line: number;
+  column: number;
+  [key: string]: any;
+}
+
+/* eslint-enable @typescript-eslint/no-explicit-any */
+
+// ── Cell line mapping ────────────────────────────────────────────────
+
 export interface CellLineMapping {
   cellIndex: number;
   cellUri: string;

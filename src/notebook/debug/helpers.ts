@@ -7,7 +7,8 @@ import * as vscode from "vscode";
 import * as path from "path";
 import * as os from "os";
 import * as fs from "fs/promises";
-import { NOTEBOOK_TYPE, NOTEBOOK_TYPE_COMPAT } from "./controller";
+import { NOTEBOOK_TYPE, NOTEBOOK_TYPE_COMPAT } from "../controller";
+import { SourceMapping } from "./sourceMapping";
 import type { CellLineMapping } from "./sourceMapping";
 
 // ── Constants ────────────────────────────────────────────────────────
@@ -116,4 +117,23 @@ export async function generateTempFile(
   await fs.writeFile(tempFilePath, lines.join("\n"), "utf-8");
 
   return { tempFilePath, mappings };
+}
+
+// ── Source mapping construction ───────────────────────────────────────
+
+/**
+ * Resolve a temp file path via realpath (e.g. macOS /var -> /private/var)
+ * and construct a SourceMapping.
+ */
+export async function resolveAndCreateMapping(
+  tempFilePath: string,
+  mappings: CellLineMapping[],
+): Promise<SourceMapping> {
+  let resolvedPath = tempFilePath;
+  try {
+    resolvedPath = await fs.realpath(tempFilePath);
+  } catch {
+    // keep original
+  }
+  return new SourceMapping(resolvedPath, mappings);
 }
