@@ -20,6 +20,7 @@ import {
 } from "./notebook/debug";
 import { BinaryManager } from "./binaryManager";
 import { DapProcessAdapter } from "./notebook/debug/dapAdapter";
+import { searchDocumentation } from "./searchDocs";
 
 let client: LanguageClient | undefined;
 let mcpManager: McpProcessManager | undefined;
@@ -282,6 +283,18 @@ export async function activate(
     "Maxima Language Server",
     serverOptions,
     clientOptions,
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("maxima.searchDocs", () => {
+      if (client) {
+        searchDocumentation(client);
+      } else {
+        vscode.window.showWarningMessage(
+          "Maxima language server is not running.",
+        );
+      }
+    }),
   );
 
   try {

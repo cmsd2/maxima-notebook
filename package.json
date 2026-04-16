@@ -50,11 +50,13 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0",
     "katex": "^0.16.45",
+    "markdown-it": "^14.1.1",
     "plotly.js-dist-min": "^3.5.0",
     "vscode-languageclient": "^9.0.1"
   },
   "devDependencies": {
     "@types/katex": "^0.16.8",
+    "@types/markdown-it": "^14.1.2",
     "@types/node": "^20.0.0",
     "@types/plotly.js": "^3.0.10",
     "@types/vscode": "^1.82.0",
@@ -142,6 +144,11 @@
       {
         "command": "maxima.downloadTools",
         "title": "Maxima: Download/Update Tools"
+      },
+      {
+        "command": "maxima.searchDocs",
+        "title": "Maxima: Search Documentation",
+        "icon": "$(search)"
       }
     ],
     "menus": {
@@ -270,14 +277,16 @@
               "description": "Zero-based index of the cell to execute"
             }
           },
-          "required": ["cellIndex"],
+          "required": [
+            "cellIndex"
+          ],
           "additionalProperties": false
         }
       },
       {
         "name": "maxima_notebook_add_cell",
         "displayName": "Add Maxima Notebook Cell",
-        "modelDescription": "Add a new cell to the active Maxima notebook. Defaults to a code cell. Set kind to \"markdown\" for documentation/notes. The cell is added but not executed — use maxima_notebook_run_cell to execute code cells after adding. Maxima syntax tips: (1) Statements ending with `;` display their result (last one renders as LaTeX), `$` suppresses output. Use `print(expr)` for explicit text or `tex(expr)` for rendered LaTeX. (2) The comma operator is NOT a statement separator — `a, b` means `ev(a, b)`. To sequence expressions use separate statements with `$` or `;`, or a `block()`. (3) Prefer Unicode Greek letters (π, α, β, θ, etc.) over % forms (%pi, %alpha) — they are translated automatically. (4) For plots, prefer `plot2d`/`plot3d` over `draw2d`/`draw3d` — plot functions produce inline SVG visible in the notebook, while draw outputs to gnuplot and won't be captured. (5) For markdown cells: content is stored verbatim, use real newlines not \\n literals, and single backslashes for LaTeX (e.g. `\\sin`, `\\varphi`).",
+        "modelDescription": "Add a new cell to the active Maxima notebook. Defaults to a code cell. Set kind to \"markdown\" for documentation/notes. The cell is added but not executed — use maxima_notebook_run_cell to execute code cells after adding. Maxima syntax tips: (1) Statements ending with `;` display their result (last one renders as LaTeX), `$` suppresses output. Use `print(expr)` for explicit text or `tex(expr)` for rendered LaTeX. (2) The comma operator is NOT a statement separator — `a, b` means `ev(a, b)`. To sequence expressions use separate statements with `$` or `;`, or a `block()`. (3) Prefer Unicode Greek letters (π, α, β, θ, etc.) over % forms (%pi, %alpha) — they are translated automatically. (4) For plots, prefer `plot2d`/`plot3d` over `draw2d`/`draw3d` — plot functions produce inline SVG visible in the notebook, while draw outputs to gnuplot and won't be captured. (5) For markdown cells: content is stored verbatim, use real newlines not \\n literals, and single backslashes for LaTeX (e.g. `\\sin`, `\\varphi`). (6) Symbolic constants like %pi, %e stay symbolic even in float expressions — `cos(2*%pi*0.73)` remains unevaluated. Wrap in `float()` to force numeric evaluation when building numeric lists.",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -291,11 +300,16 @@
             },
             "kind": {
               "type": "string",
-              "enum": ["code", "markdown"],
+              "enum": [
+                "code",
+                "markdown"
+              ],
               "description": "Cell type: \"code\" (default) for Maxima code, \"markdown\" for rich text."
             }
           },
-          "required": ["source"],
+          "required": [
+            "source"
+          ],
           "additionalProperties": false
         }
       },
@@ -321,7 +335,9 @@
               "description": "Maxima expression to evaluate at the current breakpoint"
             }
           },
-          "required": ["expression"],
+          "required": [
+            "expression"
+          ],
           "additionalProperties": false
         }
       },
@@ -417,7 +433,7 @@
     "[maxima]": {
       "github.copilot.chat.codeGeneration.instructions": [
         {
-          "text": "Maxima syntax rules: (1) Statements end with `;` (display result) or `$` (suppress output). In notebooks the last expression's result is automatically rendered as LaTeX, so you don't need `tex()` for that — use `print(expr)` only for intermediate output. (2) The comma operator is NOT a statement separator — `a, b` means `ev(a, b)`. To sequence expressions use separate statements with `$` or `;`, or wrap in `block()`. (3) Prefer Unicode Greek letters (π, α, β, θ) over %pi, %alpha etc. — they are translated automatically. (4) For plots, prefer `plot2d`/`plot3d` over `draw2d`/`draw3d` — plot functions produce inline SVG in notebooks, while draw outputs to gnuplot and won't be captured. (5) Assignment uses `:` not `=`. The `=` operator creates equations. (6) Function definition uses `:=` e.g. `f(x) := x^2;`."
+          "text": "Maxima syntax rules: (1) Statements end with `;` (display result) or `$` (suppress output). In notebooks the last expression's result is automatically rendered as LaTeX, so you don't need `tex()` for that — use `print(expr)` only for intermediate output. (2) The comma operator is NOT a statement separator — `a, b` means `ev(a, b)`. To sequence expressions use separate statements with `$` or `;`, or wrap in `block()`. (3) Prefer Unicode Greek letters (π, α, β, θ) over %pi, %alpha etc. — they are translated automatically. (4) For plots, prefer `plot2d`/`plot3d` over `draw2d`/`draw3d` — plot functions produce inline SVG in notebooks, while draw outputs to gnuplot and won't be captured. (5) Assignment uses `:` not `=`. The `=` operator creates equations. (6) Function definition uses `:=` e.g. `f(x) := x^2;`. (7) Symbolic constants like %pi, %e stay symbolic even in float expressions — `cos(2*%pi*0.73)` stays unevaluated. Wrap in `float()` to force numeric evaluation when building numeric lists."
         }
       ]
     }
