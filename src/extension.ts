@@ -259,6 +259,64 @@ export async function activate(
   );
 
   // --- LSP client ---
+  const clientOptions: LanguageClientOptions = {
+    documentSelector: [
+      { scheme: "file", language: "maxima" },
+      { scheme: "vscode-notebook-cell", language: "maxima" },
+    ],
+  };
+
+  /** Create (or recreate) the LSP client with the currently resolved binary. */
+  function createClient(): LanguageClient {
+    const cmd = binaryManager?.resolveTool("maxima-lsp");
+    if (!cmd) {
+      throw new Error("maxima-lsp binary not found");
+    }
+    return new LanguageClient(
+      "maxima-lsp",
+      "Maxima Language Server",
+      { command: cmd, args: [] },
+      clientOptions,
+    );
+  }
+
+  /** Stop the current client (if any) and start a fresh one. */
+  async function restartClient(): Promise<void> {
+    if (client) {
+      await client.stop();
+    }
+    client = createClient();
+    await client.start();
+  }
+
+  // Register LSP commands unconditionally so they're always available in the
+  // command palette, even when the language server binary is missing at startup.
+  context.subscriptions.push(
+    vscode.commands.registerCommand("maxima.restartLsp", async () => {
+      try {
+        await restartClient();
+        vscode.window.showInformationMessage("Maxima language server restarted.");
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        vscode.window.showWarningMessage(
+          `Failed to restart maxima-lsp: ${message}`,
+        );
+      }
+    }),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("maxima.searchDocs", () => {
+      if (client) {
+        searchDocumentation(client);
+      } else {
+        vscode.window.showWarningMessage(
+          "Maxima language server is not running.",
+        );
+      }
+    }),
+  );
+
   const config = vscode.workspace.getConfiguration("maxima");
   const lspEnabled = config.get<boolean>("lsp.enabled", true);
 
@@ -268,8 +326,6 @@ export async function activate(
 
   const command = binaryManager?.resolveTool("maxima-lsp");
   if (!command) {
-    // No binary found anywhere — skip LSP silently (the install prompt
-    // from promptInstallIfNeeded() will guide the user)
     return;
   }
 
@@ -293,65 +349,12 @@ export async function activate(
     }
   }
 
-  const clientOptions: LanguageClientOptions = {
-    documentSelector: [
-      { scheme: "file", language: "maxima" },
-      { scheme: "vscode-notebook-cell", language: "maxima" },
-    ],
-  };
-
-  /** Create (or recreate) the LSP client with the currently resolved binary. */
-  function createClient(): LanguageClient {
-    const cmd = binaryManager?.resolveTool("maxima-lsp") ?? command!;
-    return new LanguageClient(
-      "maxima-lsp",
-      "Maxima Language Server",
-      { command: cmd, args: [] },
-      clientOptions,
-    );
-  }
-
-  /** Stop the current client (if any) and start a fresh one. */
-  async function restartClient(): Promise<void> {
-    if (client) {
-      await client.stop();
-    }
-    client = createClient();
-    await client.start();
-  }
-
   client = createClient();
 
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration(async (e) => {
       if (e.affectsConfiguration("maxima.lsp.path")) {
         await restartClient();
-      }
-    }),
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand("maxima.restartLsp", async () => {
-      try {
-        await restartClient();
-        vscode.window.showInformationMessage("Maxima language server restarted.");
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        vscode.window.showWarningMessage(
-          `Failed to restart maxima-lsp: ${message}`,
-        );
-      }
-    }),
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand("maxima.searchDocs", () => {
-      if (client) {
-        searchDocumentation(client);
-      } else {
-        vscode.window.showWarningMessage(
-          "Maxima language server is not running.",
-        );
       }
     }),
   );
