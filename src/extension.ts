@@ -34,8 +34,11 @@ export async function activate(
   binaryManager = new BinaryManager(context.globalStorageUri);
 
   context.subscriptions.push(
-    vscode.commands.registerCommand("maxima.downloadTools", () => {
-      binaryManager?.downloadTools();
+    vscode.commands.registerCommand("maxima.downloadTools", async () => {
+      const ok = await binaryManager?.downloadTools();
+      if (ok) {
+        await restartClient();
+      }
     }),
   );
 
@@ -43,7 +46,12 @@ export async function activate(
   binaryManager.checkMaximaInstalled();
   binaryManager.promptInstallIfNeeded();
   // Non-blocking: check for updates after a short delay
-  setTimeout(() => binaryManager?.checkForUpdates(), 5000);
+  setTimeout(async () => {
+    const updated = await binaryManager?.checkForUpdates();
+    if (updated && client) {
+      await restartClient();
+    }
+  }, 5000);
 
   // --- Run File command ---
   context.subscriptions.push(
@@ -266,11 +274,6 @@ export async function activate(
     }
   }
 
-  const serverOptions: ServerOptions = {
-    command,
-    args: [],
-  };
-
   const clientOptions: LanguageClientOptions = {
     documentSelector: [
       { scheme: "file", language: "maxima" },
@@ -278,11 +281,48 @@ export async function activate(
     ],
   };
 
-  client = new LanguageClient(
-    "maxima-lsp",
-    "Maxima Language Server",
-    serverOptions,
-    clientOptions,
+  /** Create (or recreate) the LSP client with the currently resolved binary. */
+  function createClient(): LanguageClient {
+    const cmd = binaryManager?.resolveTool("maxima-lsp") ?? command!;
+    return new LanguageClient(
+      "maxima-lsp",
+      "Maxima Language Server",
+      { command: cmd, args: [] },
+      clientOptions,
+    );
+  }
+
+  /** Stop the current client (if any) and start a fresh one. */
+  async function restartClient(): Promise<void> {
+    if (client) {
+      await client.stop();
+    }
+    client = createClient();
+    await client.start();
+  }
+
+  client = createClient();
+
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration(async (e) => {
+      if (e.affectsConfiguration("maxima.lsp.path")) {
+        await restartClient();
+      }
+    }),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("maxima.restartLsp", async () => {
+      try {
+        await restartClient();
+        vscode.window.showInformationMessage("Maxima language server restarted.");
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        vscode.window.showWarningMessage(
+          `Failed to restart maxima-lsp: ${message}`,
+        );
+      }
+    }),
   );
 
   context.subscriptions.push(

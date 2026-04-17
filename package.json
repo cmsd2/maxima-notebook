@@ -149,6 +149,10 @@
         "command": "maxima.searchDocs",
         "title": "Maxima: Search Documentation",
         "icon": "$(search)"
+      },
+      {
+        "command": "maxima.restartLsp",
+        "title": "Maxima: Restart Language Server"
       }
     ],
     "menus": {

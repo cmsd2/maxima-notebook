@@ -87,6 +87,17 @@ export class BinaryManager {
     this.storageDir = globalStorageUri.fsPath;
     this.binDir = path.join(this.storageDir, "bin");
     this.versionFilePath = path.join(this.storageDir, "tools-version.json");
+    this.cleanupOldBinaries();
+  }
+
+  /** Remove leftover .old binaries from a previous Windows update. */
+  private cleanupOldBinaries(): void {
+    for (const tool of TOOLS) {
+      const oldPath = path.join(this.binDir, tool.name + exeSuffix() + ".old");
+      fs.unlink(oldPath, () => {
+        // best-effort, ignore errors
+      });
+    }
   }
 
   /**
@@ -211,22 +222,22 @@ export class BinaryManager {
    * Query GitHub Releases API (max once per 24h) and prompt if a newer
    * version is available.
    */
-  async checkForUpdates(): Promise<void> {
+  async checkForUpdates(): Promise<boolean> {
     const versionInfo = this.readVersionInfo();
     if (!versionInfo) {
-      return; // No managed install — nothing to update
+      return false; // No managed install — nothing to update
     }
 
     const lastChecked = new Date(versionInfo.lastChecked).getTime();
     if (Date.now() - lastChecked < CHECK_INTERVAL_MS) {
-      return; // Checked recently
+      return false; // Checked recently
     }
 
     let latest: GitHubRelease;
     try {
       latest = await this.fetchLatestRelease();
     } catch {
-      return; // Network error — silently skip
+      return false; // Network error — silently skip
     }
 
     const latestVersion = latest.tag_name.replace(TAG_PREFIX, "");
@@ -234,7 +245,7 @@ export class BinaryManager {
     this.writeVersionInfo(versionInfo.version, new Date().toISOString());
 
     if (latestVersion === versionInfo.version) {
-      return;
+      return false;
     }
 
     const choice = await vscode.window.showInformationMessage(
@@ -245,10 +256,11 @@ export class BinaryManager {
     );
 
     if (choice === "Update") {
-      await this.downloadTools(latest.tag_name);
+      return await this.downloadTools(latest.tag_name);
     } else if (choice === "What's New") {
       vscode.env.openExternal(vscode.Uri.parse(latest.html_url));
     }
+    return false;
   }
 
   /**
@@ -256,17 +268,17 @@ export class BinaryManager {
    * globalStorageUri/bin/, set executable permissions, and write
    * version.json.
    */
-  async downloadTools(tag?: string): Promise<void> {
+  async downloadTools(tag?: string): Promise<boolean> {
     const target = getRustTarget();
     if (!target) {
       vscode.window.showErrorMessage(
         `Unsupported platform: ${process.platform}-${process.arch}. ` +
           "Please build from source with cargo install.",
       );
-      return;
+      return false;
     }
 
-    await vscode.window.withProgress(
+    return (await vscode.window.withProgress(
       {
         location: vscode.ProgressLocation.Notification,
         title: "Downloading Maxima tools",
@@ -300,6 +312,29 @@ export class BinaryManager {
           // Ensure bin directory exists
           await fs.promises.mkdir(this.binDir, { recursive: true });
 
+          // Move existing binaries out of the way before extracting.
+          // On Unix: unlink works (running process keeps the old inode).
+          // On Windows: can't delete a running .exe, but rename works —
+          //   move to .old and clean up later.
+          for (const tool of TOOLS) {
+            const binPath = path.join(this.binDir, tool.name + exeSuffix());
+            try {
+              if (process.platform === "win32") {
+                const oldPath = binPath + ".old";
+                try {
+                  await fs.promises.unlink(oldPath);
+                } catch {
+                  // .old may not exist
+                }
+                await fs.promises.rename(binPath, oldPath);
+              } else {
+                await fs.promises.unlink(binPath);
+              }
+            } catch {
+              // File may not exist yet
+            }
+          }
+
           // Extract
           progress.report({ message: "Extracting..." });
           if (archiveName.endsWith(".zip")) {
@@ -327,14 +362,16 @@ export class BinaryManager {
           vscode.window.showInformationMessage(
             `Maxima tools ${version} installed successfully.`,
           );
+          return true;
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
           vscode.window.showErrorMessage(
             `Failed to download Maxima tools: ${message}`,
           );
+          return false;
         }
       },
-    );
+    )) ?? false;
   }
 
   // ── Private helpers ─────────────────────────────────────────────────

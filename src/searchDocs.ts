@@ -177,6 +177,7 @@ function renderDocsHtml(docs: FunctionDocs): string {
     : "";
 
   // When full_docs is available, use it as the main body content (rendered markdown).
+  // The LSP inlines images as base64 data URIs, so they render without local file access.
   // Only fall back to the structured catalog fields when there's no full_docs.
   let bodyHtml: string;
   if (docs.full_docs) {
@@ -252,6 +253,7 @@ function renderDocsHtml(docs: FunctionDocs): string {
   .example { margin: 4px 0 12px; }
   .example-desc { margin: 4px 0; font-style: italic; opacity: 0.8; }
   .full-docs p { margin: 8px 0; }
+  .full-docs img { max-width: 100%; height: auto; }
   a.see-also-link {
     color: var(--vscode-textLink-foreground);
     text-decoration: none;
