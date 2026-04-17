@@ -7,6 +7,10 @@
 
 ### Fixed
 
+## [0.2.2]
+### Fixed
+- Fix "Cannot access before initialization" error when tools are downloaded after extension activation
+
 ## [0.2.1]
 ### Fixed
 - "Restart Language Server" and "Search Documentation" commands no longer fail with "command not found" when the maxima-lsp binary was not yet available at activation time
