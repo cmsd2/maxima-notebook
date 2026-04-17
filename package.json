@@ -2,7 +2,7 @@
   "name": "maxima-notebook",
   "displayName": "Maxima Notebook",
   "description": "VS Code extension for Maxima: notebooks, debugger, language server, and AI integration",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "engines": {
     "vscode": "^1.99.0"
   },

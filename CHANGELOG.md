@@ -7,6 +7,10 @@
 
 ### Fixed
 
+## [0.2.1]
+### Fixed
+- "Restart Language Server" and "Search Documentation" commands no longer fail with "command not found" when the maxima-lsp binary was not yet available at activation time
+
 ## [0.2.0]
 ### Added
 - Debug adapter logs now appear in the "Maxima Debug Adapter" output channel instead of writing to `/tmp/maxima-dap.log`
