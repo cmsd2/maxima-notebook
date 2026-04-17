@@ -27,6 +27,21 @@ let mcpManager: McpProcessManager | undefined;
 let notebookController: NotebookController | undefined;
 let binaryManager: BinaryManager | undefined;
 
+/** Resolves once the window has focus, or immediately if already focused. */
+function whenWindowReady(): Promise<void> {
+  if (vscode.window.state.focused) {
+    return Promise.resolve();
+  }
+  return new Promise<void>((resolve) => {
+    const d = vscode.window.onDidChangeWindowState((s) => {
+      if (s.focused) {
+        d.dispose();
+        resolve();
+      }
+    });
+  });
+}
+
 export async function activate(
   context: vscode.ExtensionContext,
 ): Promise<void> {
@@ -42,10 +57,14 @@ export async function activate(
     }),
   );
 
-  // Non-blocking: check for Maxima and prompt to install missing tools
-  binaryManager.checkMaximaInstalled();
-  binaryManager.promptInstallIfNeeded();
-  // Non-blocking: check for updates after a short delay
+  // Non-blocking: check for Maxima and prompt to install missing tools.
+  // Wait for the window to be focused so notifications aren't swallowed
+  // when VS Code restores a session and activates the extension during startup.
+  whenWindowReady().then(() => {
+    binaryManager?.checkMaximaInstalled();
+    binaryManager?.promptInstallIfNeeded();
+  });
+  // Non-blocking: check for updates after a longer delay
   setTimeout(async () => {
     const updated = await binaryManager?.checkForUpdates();
     if (updated && client) {
