@@ -96,6 +96,21 @@ Interactive Maxima notebooks with rich output rendering. Create `.macnb` files o
 
 Requires the `aximar-mcp` binary. The extension spawns and manages the process automatically, using an ephemeral port with bearer token authentication.
 
+#### Export to HTML / PDF
+
+Export notebooks to self-contained HTML or PDF for sharing and printing. Uses [nbconvert](https://nbconvert.readthedocs.io/) with the [maxima-nbconvert](https://github.com/cmsd2/maxima-nbconvert) package.
+
+- **Export to HTML** — Renders math via MathJax, embeds SVG plots, converts Plotly charts to static SVG
+- **Export to PDF** — Produces print-ready PDF via LaTeX (requires xelatex)
+- **Command palette** — "Maxima: Export Notebook to HTML" / "Maxima: Export Notebook to PDF"
+- **Toolbar buttons** — Available in the notebook toolbar
+
+Requires Python with `maxima-nbconvert` installed in the active environment (detected via the Python extension):
+
+```bash
+uv pip install "maxima-nbconvert[plotly]"
+```
+
 #### AI Integration
 
 AI agents (Copilot, Claude, etc.) can read and manipulate notebooks via Language Model tools:

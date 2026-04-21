@@ -163,12 +163,18 @@ function deserializeOutput(
 
     for (const [mime, content] of Object.entries(data)) {
       const text = Array.isArray(content) ? content.join("") : content;
-      // Remap text/latex → application/x-maxima-latex for our renderer (Phase 2)
-      const mappedMime =
-        mime === "text/latex" ? "application/x-maxima-latex" : mime;
-      items.push(
-        vscode.NotebookCellOutputItem.text(text, mappedMime),
-      );
+      if (mime === "image/png") {
+        // nbformat stores image data as base64; VS Code expects raw bytes
+        const bytes = Buffer.from(text, "base64");
+        items.push(new vscode.NotebookCellOutputItem(bytes, "image/png"));
+      } else {
+        // Remap text/latex → application/x-maxima-latex for our renderer
+        const mappedMime =
+          mime === "text/latex" ? "application/x-maxima-latex" : mime;
+        items.push(
+          vscode.NotebookCellOutputItem.text(text, mappedMime),
+        );
+      }
     }
 
     if (items.length > 0) {
@@ -231,11 +237,17 @@ function serializeOutput(output: vscode.NotebookCellOutput): IpynbOutput {
   // Build MIME data bundle
   const data: Record<string, string[]> = {};
   for (const item of output.items) {
-    const text = new TextDecoder().decode(item.data);
-    // Remap our custom MIME back to standard for ipynb compat
-    const mime =
-      item.mime === "application/x-maxima-latex" ? "text/latex" : item.mime;
-    data[mime] = splitSource(text);
+    if (item.mime === "image/png") {
+      // Store as base64 for nbformat compatibility
+      const b64 = Buffer.from(item.data).toString("base64");
+      data["image/png"] = [b64];
+    } else {
+      const text = new TextDecoder().decode(item.data);
+      // Remap our custom MIME back to standard for ipynb compat
+      const mime =
+        item.mime === "application/x-maxima-latex" ? "text/latex" : item.mime;
+      data[mime] = splitSource(text);
+    }
   }
 
   // Ensure text/plain fallback exists

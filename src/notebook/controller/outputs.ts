@@ -54,6 +54,16 @@ export function buildOutputs(result: EvalResult): vscode.NotebookCellOutput[] {
     );
   }
 
+  // PNG image — renders natively in VS Code
+  if (result.image_png) {
+    const pngBytes = Buffer.from(result.image_png, "base64");
+    outputs.push(
+      new vscode.NotebookCellOutput([
+        new vscode.NotebookCellOutputItem(pngBytes, "image/png"),
+      ]),
+    );
+  }
+
   // Plotly data — interactive chart via custom renderer
   if (result.plot_data) {
     outputs.push(

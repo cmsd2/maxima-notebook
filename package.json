@@ -48,6 +48,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0",
+    "@vscode/python-extension": "^1.0.6",
     "katex": "^0.16.45",
     "markdown-it": "^14.1.1",
     "plotly.js-dist-min": "^3.5.0",
@@ -152,6 +153,16 @@
       {
         "command": "maxima.restartLsp",
         "title": "Maxima: Restart Language Server"
+      },
+      {
+        "command": "maxima.notebook.exportHtml",
+        "title": "Maxima: Export Notebook to HTML",
+        "icon": "$(export)"
+      },
+      {
+        "command": "maxima.notebook.exportPdf",
+        "title": "Maxima: Export Notebook to PDF",
+        "icon": "$(export)"
       }
     ],
     "menus": {
@@ -179,6 +190,16 @@
           "command": "maxima.notebook.debugNotebook",
           "when": "notebookType == 'maxima-notebook' || notebookType == 'maxima-notebook-compat'",
           "group": "navigation"
+        },
+        {
+          "command": "maxima.notebook.exportHtml",
+          "when": "notebookType == 'maxima-notebook' || notebookType == 'maxima-notebook-compat'",
+          "group": "export"
+        },
+        {
+          "command": "maxima.notebook.exportPdf",
+          "when": "notebookType == 'maxima-notebook' || notebookType == 'maxima-notebook-compat'",
+          "group": "export"
         }
       ],
       "notebook/cell/title": [

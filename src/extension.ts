@@ -21,6 +21,7 @@ import {
 import { BinaryManager } from "./binaryManager";
 import { DapProcessAdapter } from "./notebook/debug/dapAdapter";
 import { searchDocumentation } from "./searchDocs";
+import { exportNotebook } from "./notebook/exportNotebook";
 
 let client: LanguageClient | undefined;
 let mcpManager: McpProcessManager | undefined;
@@ -244,6 +245,24 @@ export async function activate(
         debugFromCell(cell);
       },
     ),
+  );
+
+  // --- Notebook export ---
+  context.subscriptions.push(
+    vscode.commands.registerCommand("maxima.notebook.exportHtml", () => {
+      const notebook = vscode.window.activeNotebookEditor?.notebook;
+      if (notebook && isMaximaNotebook(notebook)) {
+        exportNotebook(notebook, "maxima_html");
+      }
+    }),
+  );
+  context.subscriptions.push(
+    vscode.commands.registerCommand("maxima.notebook.exportPdf", () => {
+      const notebook = vscode.window.activeNotebookEditor?.notebook;
+      if (notebook && isMaximaNotebook(notebook)) {
+        exportNotebook(notebook, "maxima_pdf");
+      }
+    }),
   );
 
   // --- MCP server provider ---
