@@ -66,46 +66,39 @@ export async function exportNotebook(
   const outputDir = path.dirname(outputUri.fsPath);
   const outputName = path.basename(outputUri.fsPath, `.${ext}`);
 
-  await vscode.window.withProgress(
+  const result = await vscode.window.withProgress(
     {
       location: vscode.ProgressLocation.Notification,
       title: `Exporting notebook to ${ext.toUpperCase()}…`,
       cancellable: false,
     },
-    async () => {
-      const result = await runNbconvert(
-        pythonPath,
-        format,
-        notebook.uri.fsPath,
-        outputDir,
-        outputName,
-      );
-
-      if (result.success) {
-        const choice = await vscode.window.showInformationMessage(
-          `Notebook exported to ${outputUri.fsPath}`,
-          "Open",
-        );
-        if (choice === "Open") {
-          vscode.env.openExternal(outputUri);
-        }
-      } else if (result.stderr.includes("No module named")) {
-        const choice = await vscode.window.showErrorMessage(
-          "jupyter nbconvert or maxima-nbconvert is not installed in the active Python environment.",
-          "Show Install Instructions",
-        );
-        if (choice === "Show Install Instructions") {
-          vscode.window.showInformationMessage(
-            'Run: pip install "maxima-nbconvert[plotly]"',
-          );
-        }
-      } else {
-        vscode.window.showErrorMessage(
-          `Export failed: ${result.stderr || result.stdout}`,
-        );
-      }
-    },
+    () =>
+      runNbconvert(pythonPath, format, notebook.uri.fsPath, outputDir, outputName),
   );
+
+  if (result.success) {
+    const choice = await vscode.window.showInformationMessage(
+      `Notebook exported to ${outputUri.fsPath}`,
+      "Open",
+    );
+    if (choice === "Open") {
+      vscode.env.openExternal(outputUri);
+    }
+  } else if (result.stderr.includes("No module named")) {
+    const choice = await vscode.window.showErrorMessage(
+      "jupyter nbconvert or maxima-nbconvert is not installed in the active Python environment.",
+      "Show Install Instructions",
+    );
+    if (choice === "Show Install Instructions") {
+      vscode.window.showInformationMessage(
+        'Run: pip install "maxima-nbconvert[plotly]"',
+      );
+    }
+  } else {
+    vscode.window.showErrorMessage(
+      `Export failed: ${result.stderr || result.stdout}`,
+    );
+  }
 }
 
 interface NbconvertResult {

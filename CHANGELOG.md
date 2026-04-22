@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 ### Added
+- "Export Notebook to HTML" and "Export Notebook to PDF" commands — uses [maxima-nbconvert](https://github.com/cmsd2/maxima-nbconvert) and nbconvert under the hood
+- Notebook toolbar buttons for export
+- Python interpreter discovery via the VS Code Python extension API, with fallback to `python3` on PATH
 
 ### Changed
 

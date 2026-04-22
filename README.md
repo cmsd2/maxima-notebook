@@ -164,6 +164,20 @@ cargo install --git https://github.com/cmsd2/aximar maxima-lsp maxima-dap aximar
 
 If you've placed the binaries in a non-standard location, point the extension at them via settings (`maxima.lsp.path`, `maxima.dap.path`, `maxima.notebook.mcpPath`).
 
+### Notebook export (optional)
+
+The export commands require Python with [maxima-nbconvert](https://github.com/cmsd2/maxima-nbconvert) installed. The easiest way is with [uv](https://docs.astral.sh/uv/):
+
+```sh
+# Create a virtual environment and install maxima-nbconvert
+uv venv
+uv pip install "maxima-nbconvert[plotly]"
+```
+
+Then select this environment in VS Code: open the command palette and run **Python: Select Interpreter** → **Enter interpreter path…**, and enter `.venv/bin/python` (or `.venv\Scripts\python.exe` on Windows). The export commands will use whichever Python interpreter is selected by the [Python extension](https://marketplace.visualstudio.com/items?itemName=ms-python.python).
+
+The `[plotly]` extra installs Plotly and Kaleido for converting interactive charts to static SVG. Without it, Plotly chart outputs will be skipped during export. PDF export additionally requires a LaTeX distribution (e.g. TeX Live or MiKTeX) for `xelatex`.
+
 ### Maxima
 
 Debugging and the Run File command require [Maxima](https://maxima.sourceforge.io/download.html) to be installed separately. The debugger requires the SBCL backend (the default on most installations).
