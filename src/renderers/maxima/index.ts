@@ -140,7 +140,11 @@ async function renderPlotly(
 ): Promise<void> {
   element.classList.add("maxima-plotly-output");
 
-  let spec: { data: unknown[]; layout?: Record<string, unknown> };
+  let spec: {
+    data: unknown[];
+    layout?: Record<string, unknown>;
+    frames?: unknown[];
+  };
   try {
     spec = JSON.parse(jsonStr);
   } catch {
@@ -195,6 +199,13 @@ async function renderPlotly(
   };
 
   await Plotly.newPlot(plotDiv, spec.data as Plotly.Data[], layout, config);
+  // Animated figures (from ax-plots `animate(...)`) carry a top-level
+  // `frames` array plus layout.sliders / layout.updatemenus.  addFrames
+  // attaches them post-newPlot; Plotly's slider + play button reference
+  // them by name once registered.
+  if (Array.isArray(spec.frames) && spec.frames.length > 0) {
+    await Plotly.addFrames(plotDiv, spec.frames as Partial<Plotly.Frame>[]);
+  }
   plotlyElements.add(plotDiv);
 }
 
