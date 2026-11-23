@@ -76,6 +76,20 @@ npm run package          # Production build (minified, no source maps)
 3. Open any `.mac` file in the dev host to test syntax highlighting, commands, and LSP features.
 4. After making changes, press **Ctrl+Shift+F5** (or Cmd+Shift+F5) to reload the dev host.
 
+### Test against a particular build of the tools
+
+`scripts/dev-env.py` opens a development host with its own VS Code profile, set up to use a chosen build of maxima-lsp, maxima-dap and aximar-mcp. Your own profile, settings and extensions stay untouched.
+
+```sh
+scripts/dev-env.py --tools latest                                # newest tools release
+scripts/dev-env.py --tools tools-v0.5.0                          # a release
+scripts/dev-env.py --tools ~/src/aximar                          # build a checkout
+scripts/dev-env.py --tools git:origin/master+pr:45 --open ~/proj # master with PR 45 merged
+scripts/dev-env.py --list                                        # cached profiles and builds
+```
+
+`git:` specs need the aximar repository: a sibling checkout, `$AXIMAR_REPO`, or `--aximar-repo`. Builds are cached by commit, so a second run with the same refs starts at once. Profiles keep their state between runs unless you pass `--fresh`. See `scripts/dev-env.py --help` for every option.
+
 ### Testing with maxima-lsp
 
 To test language server features, build and install `maxima-lsp` from the Aximar repo:
