@@ -1,28 +1,19 @@
-/** Result from evaluating a Maxima expression via aximar-mcp. */
+/**
+ * Result from evaluating a cell via aximar-mcp. A label the session can't
+ * resolve comes back with only `error`, `is_error` and `execution_count`.
+ */
 export interface EvalResult {
-  text_output: string;
-  latex: string | null;
-  plot_svg: string | null;
-  plot_data: string | null;
-  image_png: string | null;
-  error: string | null;
+  text_output?: string;
+  latex?: string | null;
+  plot_svg?: string | null;
+  plot_data?: string | null;
+  image_png?: string | null;
+  error?: string | null;
   is_error: boolean;
-  duration_ms: number;
-  output_label: string | null;
-}
-
-/** Metadata stored per notebook cell. */
-export interface MaximaCellMetadata {
-  outputLabel?: string;
-  executionCount?: number;
-}
-
-/** Context for rewriting % and %oN/%iN labels before evaluation. */
-export interface LabelContext {
-  /** Maps display execution count → real Maxima output label (e.g. 1 → "%o6") */
-  labelMap: Map<number, string>;
-  /** The real output label of the most recent previous cell (for bare %) */
-  previousOutputLabel: string | undefined;
+  duration_ms?: number;
+  output_label?: string | null;
+  /** The run's gutter number, from the server */
+  execution_count?: number | null;
 }
 
 // ── ipynb format types ──────────────────────────────────────────────

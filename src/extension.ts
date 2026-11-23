@@ -84,6 +84,8 @@ export async function activate(
       const ok = await binaryManager?.downloadTools();
       if (ok) {
         await restartClient();
+        // The next cell run starts the new aximar-mcp
+        await mcpManager?.dispose();
       }
     }),
   );
@@ -98,8 +100,11 @@ export async function activate(
   // Non-blocking: check for updates after a longer delay
   setTimeout(async () => {
     const updated = await binaryManager?.checkForUpdates();
-    if (updated && client) {
-      await restartClient();
+    if (updated) {
+      if (client) {
+        await restartClient();
+      }
+      await mcpManager?.dispose();
     }
   }, 5000);
 
@@ -171,6 +176,16 @@ export async function activate(
     binaryManager?.resolveTool("aximar-mcp"),
   );
   notebookController = new NotebookController(mcpManager);
+
+  // A new aximar-mcp path takes effect on the next cell run
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration(async (e) => {
+      if (e.affectsConfiguration("maxima.notebook.mcpPath")) {
+        notebookOutput.appendLine("maxima.notebook.mcpPath changed; stopping aximar-mcp");
+        await mcpManager?.dispose();
+      }
+    }),
+  );
 
   // Register LM tools for AI agents
   for (const d of registerLmTools(notebookController)) {

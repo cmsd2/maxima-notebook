@@ -2,10 +2,19 @@
 
 ## [Unreleased]
 ### Added
+- The extension checks that aximar-mcp supports notebook cells and offers to update it when it doesn't; after an update, the next cell run uses the new version
+- Unit tests, and tests of the MCP client against real aximar-mcp builds (`npm test`)
 
 ### Changed
+- aximar-mcp numbers cell runs and resolves `%oN` and `%`, as in the Aximar window; the extension sends each cell's ID and the IDs of the cells above it. Needs Maxima tools 0.6.0 or later
+- Downloading the tools refuses releases older than 0.6.0
+- Cells no longer store `outputLabel` and `executionCount` metadata; running a cell removes them
 
 ### Fixed
+- `%o1` and `%` work again with tools that include aximar#70
+- Downloading or updating the tools restarts aximar-mcp, so notebooks use the new version
+- Changing `maxima.notebook.mcpPath` takes effect on the next cell run instead of after a reload
+- "Install with cargo" builds from Aximar's lockfile and replaces tools already in `~/.cargo/bin` (it failed with "binary already exists in destination", or on newer dependencies)
 
 ## [0.3.0]
 ### Added

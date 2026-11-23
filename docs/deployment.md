@@ -39,7 +39,7 @@ The extension checks for updates once every 24 hours and shows a notification wh
 If you have a Rust toolchain installed:
 
 ```sh
-cargo install --git https://github.com/cmsd2/aximar maxima-lsp maxima-dap aximar-mcp
+cargo install --locked --force --git https://github.com/cmsd2/aximar maxima-lsp maxima-dap aximar-mcp
 ```
 
 The binaries will be placed in `~/.cargo/bin/` which is typically on your PATH.

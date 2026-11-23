@@ -8,6 +8,7 @@ import * as vscode from "vscode";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import type { EvalResult } from "./types";
+import { supportsClientCells } from "./clientCells";
 
 const SPAWN_TIMEOUT_MS = 15_000;
 
@@ -23,6 +24,7 @@ export class McpProcessManager {
   private port: number | undefined;
   private token: string | undefined;
   private _running = false;
+  private _clientCells = false;
   private _generation = 0;
   private outputChannel: vscode.OutputChannel;
   private resolvePath: (() => string | undefined) | undefined;
@@ -77,10 +79,35 @@ export class McpProcessManager {
     return this.token;
   }
 
+  /**
+   * Whether the running aximar-mcp takes `cell_id` and `cells_above`.
+   * Read from its tool list on each connect.
+   */
+  get supportsClientCells(): boolean {
+    return this._clientCells;
+  }
+
+  /** The aximar-mcp command this manager runs. */
+  get command(): string {
+    return this.mcpPath;
+  }
+
   // ── Tool wrappers ──────────────────────────────────────────────────
 
-  async evaluateExpression(expression: string, sessionId?: string): Promise<EvalResult> {
-    const args: Record<string, string> = { expression };
+  /**
+   * Run `expression` as the cell `cell.id`. The server numbers the run and
+   * resolves `%oN` and `%` against the cells in `cell.above`.
+   */
+  async evaluateExpression(
+    expression: string,
+    sessionId: string | undefined,
+    cell: { id: string; above: string[] },
+  ): Promise<EvalResult> {
+    const args: Record<string, unknown> = {
+      expression,
+      cell_id: cell.id,
+      cells_above: cell.above,
+    };
     if (sessionId) {
       args.session_id = sessionId;
     }
@@ -152,6 +179,7 @@ export class McpProcessManager {
     }
     this.port = undefined;
     this.token = undefined;
+    this._clientCells = false;
     if (wasRunning) {
       this._onDidChangeRunning.fire();
     }
@@ -230,6 +258,20 @@ export class McpProcessManager {
       const message = err instanceof Error ? err.message : String(err);
       this.outputChannel.appendLine(`MCP connect failed: ${message}`);
       throw new Error(`Failed to connect to aximar-mcp: ${message}`);
+    }
+
+    try {
+      const { tools } = await this.client.listTools();
+      this._clientCells = supportsClientCells(tools);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.outputChannel.appendLine(`tools/list failed: ${message}`);
+      this._clientCells = false;
+    }
+    if (!this._clientCells) {
+      this.outputChannel.appendLine(
+        "This aximar-mcp's evaluate_expression doesn't take cell_id; notebook cells need a newer version",
+      );
     }
 
     this._running = true;
