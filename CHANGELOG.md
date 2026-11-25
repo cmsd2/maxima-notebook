@@ -14,6 +14,7 @@
 - Cells no longer store `outputLabel` and `executionCount` metadata; running a cell removes them
 
 ### Fixed
+- A notebook saved by v0.3.0 or earlier no longer keeps each result's LaTeX as its `text/plain` (aximar-notebook-format 0.1.2)
 - A plot's `text/plain` is a description (`<SVG plot>`) instead of a copy of the plot's source, which Aximar showed as text
 - Error outputs read from a file show their message without the extension's stack trace
 - A file that isn't a notebook fails to open instead of opening empty, where saving would overwrite it

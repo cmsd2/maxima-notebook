@@ -59,6 +59,10 @@ describe("the shared test notebooks", () => {
     const bundles = written.cells.flatMap((c) => (c.outputs as Record<string, any>[]) ?? []);
     const svg = bundles.find((o) => o.data?.["image/svg+xml"]);
     expect(svg).toMatchObject({ output_type: "display_data", data: { "text/plain": ["<SVG plot>"] } });
+    // The old text/plain copy of the result's LaTeX isn't kept as its
+    // one-line form (aximar-notebook-format 0.1.2)
+    const value = bundles.find((o) => o.output_type === "execute_result");
+    expect(value?.data).toEqual({ "text/latex": ["{{x^2}\\over{2}}"] });
     // ...and every cell has an ID now
     expect(written.cells.every((c) => typeof c.id === "string" && c.id.length > 0)).toBe(true);
   });
