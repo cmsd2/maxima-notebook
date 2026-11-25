@@ -10,3 +10,8 @@ esbuild.mjs
 *.ts
 **/*.map
 .github/**
+test/**
+vitest.config.mts
+.claude/**
+scripts/**
+.npmrc
