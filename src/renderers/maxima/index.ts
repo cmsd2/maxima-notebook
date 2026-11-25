@@ -7,6 +7,7 @@ import type { ActivationFunction, OutputItem } from "vscode-notebook-renderer";
 import katex from "katex";
 import "katex/dist/katex.min.css";
 import "./style.css";
+import { fixAxesForFrames, keepEveryLinePoint } from "./animation";
 
 export const activate: ActivationFunction = (_context) => ({
   renderOutputItem(data: OutputItem, element: HTMLElement): void {
@@ -140,7 +141,11 @@ async function renderPlotly(
 ): Promise<void> {
   element.classList.add("maxima-plotly-output");
 
-  let spec: { data: unknown[]; layout?: Record<string, unknown> };
+  let spec: {
+    data: unknown[];
+    layout?: Record<string, unknown>;
+    frames?: unknown[];
+  };
   try {
     spec = JSON.parse(jsonStr);
   } catch {
@@ -166,9 +171,13 @@ async function renderPlotly(
   plotDiv.style.minHeight = "400px";
   element.appendChild(plotDiv);
 
+  // Animations: steady axes, and every point of each line (see animation.ts)
+  spec = keepEveryLinePoint(spec);
+  const figureLayout = fixAxesForFrames(spec);
+
   // Apply VS Code theme colors
   const layout = {
-    ...spec.layout,
+    ...figureLayout,
     paper_bgcolor: "transparent",
     plot_bgcolor: "transparent",
     font: {
@@ -176,12 +185,12 @@ async function renderPlotly(
       family: "var(--vscode-font-family)",
     },
     xaxis: {
-      ...(spec.layout?.xaxis as Record<string, unknown> | undefined),
+      ...(figureLayout?.xaxis as Record<string, unknown> | undefined),
       gridcolor: "var(--vscode-editorWidget-border)",
       zerolinecolor: "var(--vscode-editorWidget-border)",
     },
     yaxis: {
-      ...(spec.layout?.yaxis as Record<string, unknown> | undefined),
+      ...(figureLayout?.yaxis as Record<string, unknown> | undefined),
       gridcolor: "var(--vscode-editorWidget-border)",
       zerolinecolor: "var(--vscode-editorWidget-border)",
     },
@@ -195,6 +204,13 @@ async function renderPlotly(
   };
 
   await Plotly.newPlot(plotDiv, spec.data as Plotly.Data[], layout, config);
+  // Animated figures (from ax-plots `animate(...)`) carry a top-level
+  // `frames` array plus layout.sliders / layout.updatemenus.  addFrames
+  // attaches them post-newPlot; Plotly's slider + play button reference
+  // them by name once registered.
+  if (Array.isArray(spec.frames) && spec.frames.length > 0) {
+    await Plotly.addFrames(plotDiv, spec.frames as Partial<Plotly.Frame>[]);
+  }
   plotlyElements.add(plotDiv);
 }
 
