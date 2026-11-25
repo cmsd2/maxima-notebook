@@ -59,8 +59,8 @@ If any check fails, report it and stop.
 ### 7. Publish to marketplace
 
 - Check the package first: `npx @vscode/vsce ls` lists what goes in; it should hold `out/` (with `aximar_notebook_format_bg.wasm`), the docs and media, and no tests, `scripts/` or `.claude/`.
-- Run `npx @vscode/vsce publish --pre-release` for an odd minor, or `npx @vscode/vsce publish` for an even one.
-- If the user hasn't logged in yet, instruct them to run `npx @vscode/vsce login cmsd2` first.
+- Pushing the tag runs `.github/workflows/publish.yml`, which publishes with Trusted Publishing (no token): as a pre-release for an odd minor, stable for an even one. Tell the user to approve the run if the `marketplace` environment asks, and watch it with `gh run watch`.
+- For a tag that's already pushed: `gh workflow run publish.yml -f tag=v<new-version>`.
 
 ### 8. Summary
 

@@ -186,11 +186,8 @@ Versions follow VS Code's convention for pre-releases: an odd minor version (0.5
 
 1. Set the version in `package.json` (`npm install --package-lock-only` updates the lockfile) and turn the changelog's Unreleased section into that version.
 2. Merge, then tag the merge commit `v<version>` and push the tag.
-3. Publish from that commit:
+3. The tag runs `.github/workflows/publish.yml`, which checks the tag matches `package.json`, runs the lint and tests, and publishes, as a pre-release for an odd minor. Approve the run if the `marketplace` environment asks.
 
-   ```sh
-   npx @vscode/vsce publish --pre-release   # odd minor
-   npx @vscode/vsce publish                 # even minor
-   ```
+Publishing uses the Marketplace's Trusted Publishing: GitHub's OIDC token is exchanged for a short-lived Marketplace credential, so there's no token to store or renew. The policy on the `cmsd2` publisher ([marketplace.visualstudio.com/manage](https://marketplace.visualstudio.com/manage), Trusted Publishing) names the workflow file `publish.yml` and the environment `marketplace`; renaming either breaks publishing. To publish a tag that's already pushed, run the workflow by hand: `gh workflow run publish.yml -f tag=v<version>`.
 
 The extension needs the aximar tools release named by `MIN_TOOLS_VERSION` (`src/toolsVersion.ts`); release the tools first.

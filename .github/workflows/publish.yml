@@ -1,0 +1,69 @@
+name: Publish
+
+# Publishes the extension to the VS Code Marketplace with Trusted
+# Publishing: GitHub's OIDC token is exchanged for a short-lived
+# Marketplace credential, so no token is stored. The policy on the cmsd2
+# publisher (marketplace.visualstudio.com/manage) names this file and the
+# `marketplace` environment; renaming either breaks publishing.
+#
+# Runs when a version tag (v0.5.0) is pushed, or by hand for a tag that's
+# already pushed. Odd minor versions publish as pre-releases, even ones as
+# stable releases (see CONTRIBUTING.md).
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Version tag to publish, such as v0.5.0"
+        required: true
+
+concurrency: publish
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: marketplace
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Check the tag matches package.json, and choose the channel
+        id: version
+        env:
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          version=$(node -p 'require("./package.json").version')
+          if [ "v$version" != "$TAG" ]; then
+            echo "::error::Tag $TAG doesn't match package.json's version $version"
+            exit 1
+          fi
+          minor=$(echo "$version" | cut -d. -f2)
+          if [ $((minor % 2)) -eq 1 ]; then
+            echo "Publishing $version as a pre-release"
+            echo "flags=--pre-release" >> "$GITHUB_OUTPUT"
+          else
+            echo "Publishing $version as a stable release"
+          fi
+
+      - run: npm run lint
+
+      - run: npm test
+
+      # vsce runs vscode:prepublish (the production build). --oidc needs
+      # vsce 4.1 or later: 4.0.0's token exchange doesn't match the
+      # Marketplace's.
+      - name: Publish
+        run: npx --yes @vscode/vsce@4.1.1 publish --oidc ${{ steps.version.outputs.flags }}
