@@ -168,7 +168,7 @@ Edit `syntaxes/maxima.tmLanguage.json`. Test changes by pressing F5 and opening 
 - TypeScript with strict mode enabled. Run `npm run lint` (`tsc --noEmit`) to check.
 - Use the existing code as a guide for formatting and naming conventions.
 - Prefer simple, readable code over clever abstractions.
-- No lint or formatting tool is enforced yet — just match the style of surrounding code.
+- Before committing, `npm run lint` (`tsc`) and `npm test` must pass with no errors or warnings. No formatter is enforced; match the style of the surrounding code.
 
 ## Packaging
 
@@ -179,3 +179,18 @@ npx @vscode/vsce package
 ```
 
 This runs `npm run package` (production esbuild), then packages the result. The `.vscodeignore` file controls what is included — source files, node_modules, and build config are excluded.
+
+## Releasing
+
+Versions follow VS Code's convention for pre-releases: an odd minor version (0.5.x) is a pre-release, an even one (0.6.x) a stable release. Users opt in to pre-releases with "Switch to Pre-Release Version" on the extension's page, and always get the highest version, so a stable release overtakes the pre-releases before it.
+
+1. Set the version in `package.json` (`npm install --package-lock-only` updates the lockfile) and turn the changelog's Unreleased section into that version.
+2. Merge, then tag the merge commit `v<version>` and push the tag.
+3. Publish from that commit:
+
+   ```sh
+   npx @vscode/vsce publish --pre-release   # odd minor
+   npx @vscode/vsce publish                 # even minor
+   ```
+
+The extension needs the aximar tools release named by `MIN_TOOLS_VERSION` (`src/toolsVersion.ts`); release the tools first.

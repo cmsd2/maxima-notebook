@@ -10,7 +10,9 @@ Release a new version of the VS Code extension to the VS Code marketplace.
 
 ## Arguments
 
-`$ARGUMENTS` is the new version number (e.g. `0.2.0`). If not provided, ask the user.
+`$ARGUMENTS` is the new version number (e.g. `0.6.0`). If not provided, ask the user.
+
+An odd minor version (0.5.x) is a pre-release and an even one (0.6.x) a stable release, as CONTRIBUTING.md describes.
 
 ## Pre-flight checks
 
@@ -35,7 +37,7 @@ If any check fails, report it and stop.
 ### 3. Update CHANGELOG.md
 
 - Read `CHANGELOG.md`.
-- Rename the `## [Unreleased]` heading to `## [<new-version>]`.
+- Rename the `## [Unreleased]` heading to `## [<new-version>]`, or `## [<new-version>] (pre-release)` for an odd minor.
 - Add a fresh empty `## [Unreleased]` section above it with subsections `### Added`, `### Changed`, `### Fixed`.
 - Show the user the changelog diff and ask for confirmation before continuing.
 
@@ -56,7 +58,8 @@ If any check fails, report it and stop.
 
 ### 7. Publish to marketplace
 
-- Run `npx @vscode/vsce publish` to publish to the VS Code marketplace.
+- Check the package first: `npx @vscode/vsce ls` lists what goes in; it should hold `out/` (with `aximar_notebook_format_bg.wasm`), the docs and media, and no tests, `scripts/` or `.claude/`.
+- Run `npx @vscode/vsce publish --pre-release` for an odd minor, or `npx @vscode/vsce publish` for an even one.
 - If the user hasn't logged in yet, instruct them to run `npx @vscode/vsce login cmsd2` first.
 
 ### 8. Summary
