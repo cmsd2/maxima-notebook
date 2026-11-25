@@ -7,6 +7,7 @@ import type { ActivationFunction, OutputItem } from "vscode-notebook-renderer";
 import katex from "katex";
 import "katex/dist/katex.min.css";
 import "./style.css";
+import { fixAxesForFrames, keepEveryLinePoint } from "./animation";
 
 export const activate: ActivationFunction = (_context) => ({
   renderOutputItem(data: OutputItem, element: HTMLElement): void {
@@ -170,9 +171,13 @@ async function renderPlotly(
   plotDiv.style.minHeight = "400px";
   element.appendChild(plotDiv);
 
+  // Animations: steady axes, and every point of each line (see animation.ts)
+  spec = keepEveryLinePoint(spec);
+  const figureLayout = fixAxesForFrames(spec);
+
   // Apply VS Code theme colors
   const layout = {
-    ...spec.layout,
+    ...figureLayout,
     paper_bgcolor: "transparent",
     plot_bgcolor: "transparent",
     font: {
@@ -180,12 +185,12 @@ async function renderPlotly(
       family: "var(--vscode-font-family)",
     },
     xaxis: {
-      ...(spec.layout?.xaxis as Record<string, unknown> | undefined),
+      ...(figureLayout?.xaxis as Record<string, unknown> | undefined),
       gridcolor: "var(--vscode-editorWidget-border)",
       zerolinecolor: "var(--vscode-editorWidget-border)",
     },
     yaxis: {
-      ...(spec.layout?.yaxis as Record<string, unknown> | undefined),
+      ...(figureLayout?.yaxis as Record<string, unknown> | undefined),
       gridcolor: "var(--vscode-editorWidget-border)",
       zerolinecolor: "var(--vscode-editorWidget-border)",
     },
