@@ -12,7 +12,7 @@ notebook in VS Code.
 | Serializer | `src/notebook/serializer.ts` | Complete — ipynb read/write, MIME remapping |
 | Controller | `src/notebook/controller.ts` | Complete — per-notebook state, eval timeout, crash recovery |
 | MCP client | `src/notebook/mcpClient.ts` | Complete — ephemeral port, bearer token auth, generation tracking |
-| Labels | `src/notebook/labels.ts` | Complete — ported from aximar-core Rust |
+| Labels | aximar-mcp (`cell_id`, `cells_above`) | Complete, resolved by the server |
 | Types | `src/notebook/types.ts` | Complete |
 | LSP in cells | `src/extension.ts` | Working — completions, hover, diagnostics |
 | SVG plots | controller | Working — native VS Code renderer |
@@ -172,7 +172,7 @@ during stepping show cell locations. Loaded `.mac` files show directly.
 Add test infrastructure and unit tests for core notebook logic.
 
 **Targets:**
-- `labels.ts` — label rewriting with various edge cases
+- `clientCells.ts`: the `tools/list` check and the cell ID list
 - `serializer.ts` — round-trip ipynb serialization
 - `controller.ts` — output mapping logic (mock MCP client)
 

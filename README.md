@@ -89,12 +89,12 @@ Interactive Maxima notebooks with rich output rendering. Create `.macnb` files o
 - **KaTeX math** — LaTeX output rendered as typeset math (left-aligned)
 - **Plotly charts** — Interactive plots with VS Code theme integration
 - **SVG plots** — Native rendering for Maxima's SVG plot output
-- **Label rewriting** — Use `%` and `%oN` references across cells
+- **Labels**: `%o1` means the run numbered 1 in the gutter, and `%` means the output of the cell above
 - **New File menu** — "Maxima Notebook" appears in File > New File
 - **`.macnb` files** — Default notebook format (opens automatically)
 - **`.ipynb` files** — Available via "Open With" picker alongside Jupyter
 
-Requires the `aximar-mcp` binary. The extension spawns and manages the process automatically, using an ephemeral port with bearer token authentication.
+Requires the `aximar-mcp` binary from Maxima tools 0.6.0 or later. The extension spawns and manages the process automatically, using an ephemeral port with bearer token authentication.
 
 #### Export to HTML / PDF
 
@@ -157,7 +157,7 @@ The extension checks for updates once every 24 hours.
 If you have a Rust toolchain:
 
 ```sh
-cargo install --git https://github.com/cmsd2/aximar maxima-lsp maxima-dap aximar-mcp
+cargo install --locked --force --git https://github.com/cmsd2/aximar maxima-lsp maxima-dap aximar-mcp
 ```
 
 #### Manual: set paths

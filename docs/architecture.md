@@ -121,26 +121,25 @@ User clicks "Run Cell"
         ▼
 NotebookController
   1. Read cell source from VS Code NotebookDocument
-  2. Walk backwards through cells → find previousOutputLabel
-  3. Build LabelContext (labelMap + previousOutputLabel)
-  4. rewriteLabels(source, ctx) → rewritten source
+  2. Collect the cell's URI and the URIs of the code cells above
         │
         ▼
-McpClientManager.evaluateExpression(rewritten, notebookId)
+McpProcessManager.evaluateExpression(source, sessionId, { id, above })
         │
         ▼
 aximar-mcp (HTTP)
-  1. unicode_to_maxima(expression)
+  1. Number the run; rewrite %oN and % against the cells above
+     unicode_to_maxima(expression)
   2. protocol::evaluate_with_packages(process, ...)
   3. parser::parse_output() → EvalResult
         │
         ▼
 Returns JSON: { text_output, latex, plot_svg, plot_data, error,
-                is_error, duration_ms, output_label }
+                is_error, duration_ms, output_label, execution_count }
         │
         ▼
 NotebookController
-  1. Record output_label in cell metadata + labelMap
+  1. execution.executionOrder = execution_count
   2. Map fields to MIME types:
      - latex → application/x-maxima-latex
      - plot_svg → image/svg+xml
@@ -230,7 +229,7 @@ The `activate()` function registers all components:
 4. MCP token commands (existing, reworked for shared session)
 5. **MCP server provider** (reworked: auto-detect notebook process)
 6. **Notebook serializer** (`maxima-notebook` type for `.ipynb`)
-7. **Notebook controller** (execution, label tracking, interrupt)
+7. **Notebook controller** (execution, interrupt)
 8. **LM tools** (notebook cell ops, debug inspection)
 9. **Debug Notebook commands** (Debug Notebook, Debug From Cell)
 10. LSP client (existing, updated documentSelector for notebook cells)
@@ -241,9 +240,10 @@ The `activate()` function registers all components:
 |------|---------------|
 | `src/extension.ts` | Activation, registration of all components |
 | `src/notebook/serializer.ts` | `.ipynb` ↔ `NotebookData` conversion |
-| `src/notebook/controller.ts` | Cell execution, label tracking, output mapping |
+| `src/notebook/controller.ts` | Cell execution, output mapping, the outdated-server prompt |
 | `src/notebook/mcpClient.ts` | aximar-mcp process lifecycle, MCP SDK wrapper |
-| `src/notebook/labels.ts` | Label rewriting (`%` and `%oN` resolution) |
+| `src/notebook/clientCells.ts` | The `tools/list` check and the cell ID list |
+| `src/toolsVersion.ts` | The tools release the extension needs |
 | `src/notebook/types.ts` | Shared TypeScript interfaces |
 | `src/notebook/lmTools.ts` | AI-facing LM tool implementations |
 | `src/notebook/debug.ts` | Debug commands, temp file generation, DAP tracker, AI debug tools |

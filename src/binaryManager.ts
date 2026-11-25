@@ -11,6 +11,7 @@ import * as https from "https";
 import * as fs from "fs";
 import * as path from "path";
 import * as zlib from "zlib";
+import { MIN_TOOLS_VERSION, meetsMinimum } from "./toolsVersion";
 
 const GITHUB_OWNER = "cmsd2";
 const GITHUB_REPO = "aximar";
@@ -76,6 +77,15 @@ function getArchiveName(target: string): string {
 
 function exeSuffix(): string {
   return process.platform === "win32" ? ".exe" : "";
+}
+
+/** Open a terminal that builds the tools from source with cargo. */
+export function openCargoInstall(): void {
+  const terminal = vscode.window.createTerminal("Install Maxima Tools");
+  terminal.show();
+  terminal.sendText(
+    "cargo install --locked --force --git https://github.com/cmsd2/aximar maxima-lsp maxima-dap aximar-mcp",
+  );
 }
 
 export class BinaryManager {
@@ -210,11 +220,7 @@ export class BinaryManager {
     if (choice === "Download") {
       await vscode.commands.executeCommand("maxima.downloadTools");
     } else if (choice === "Install with cargo") {
-      const terminal = vscode.window.createTerminal("Install Maxima Tools");
-      terminal.show();
-      terminal.sendText(
-        "cargo install --git https://github.com/cmsd2/aximar maxima-lsp maxima-dap aximar-mcp",
-      );
+      openCargoInstall();
     }
   }
 
@@ -228,8 +234,12 @@ export class BinaryManager {
       return false; // No managed install — nothing to update
     }
 
+    // An install too old for notebook cells checks every time
     const lastChecked = new Date(versionInfo.lastChecked).getTime();
-    if (Date.now() - lastChecked < CHECK_INTERVAL_MS) {
+    if (
+      meetsMinimum(versionInfo.version) &&
+      Date.now() - lastChecked < CHECK_INTERVAL_MS
+    ) {
       return false; // Checked recently
     }
 
@@ -293,6 +303,19 @@ export class BinaryManager {
             release = await this.fetchRelease(tag);
           } else {
             release = await this.fetchLatestRelease();
+          }
+
+          const releaseVersion = release.tag_name.replace(TAG_PREFIX, "");
+          if (!meetsMinimum(releaseVersion)) {
+            const choice = await vscode.window.showErrorMessage(
+              `The latest Maxima tools release (${releaseVersion}) is older than ` +
+                `this extension needs (${MIN_TOOLS_VERSION}). Build the tools from source instead?`,
+              "Install with cargo",
+            );
+            if (choice === "Install with cargo") {
+              openCargoInstall();
+            }
+            return false;
           }
 
           const archiveName = getArchiveName(target);

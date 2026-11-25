@@ -113,13 +113,15 @@ controller.interruptHandler = interruptExecution;
 Cells are executed **sequentially** (Maxima is stateful — each cell builds
 on the previous state).
 
-1. **Create execution** — `controller.createNotebookCellExecution(cell)`
-2. **Increment execution order** — local counter (not from Maxima)
-3. **Label rewriting** — see [Label Rewriting](#label-rewriting) below
-4. **Call MCP** — `mcpClient.evaluateExpression(rewrittenSource, notebookId)`
-5. **Map outputs** — see [Output Mapping](#output-mapping) below
-6. **Record label** — store returned `output_label` in cell metadata
-7. **Complete execution** — `execution.end(success, timestamp)`
+1. **Create execution**: `controller.createNotebookCellExecution(cell)`
+2. **Check the server**: the aximar-mcp must take `cell_id`; see
+   [Older aximar-mcp](#older-aximar-mcp) below
+3. **Call MCP**: `mcpClient.evaluateExpression(source, sessionId, { id, above })`
+   with the cell's source unchanged; see [Labels](#labels) below
+4. **Show the number**: `execution.executionOrder` takes the returned
+   `execution_count`
+5. **Map outputs**: see [Output Mapping](#output-mapping) below
+6. **Complete execution**: `execution.end(success, timestamp)`
 
 ### Output Mapping
 
@@ -135,6 +137,7 @@ interface EvalResult {
   is_error: boolean;
   duration_ms: number;
   output_label?: string | null;
+  execution_count?: number | null;  // the run's gutter number
 }
 ```
 
@@ -160,92 +163,49 @@ main result, mimicking Jupyter behavior.
 - **Interrupt**: Calls `restartSession(notebookId)` on aximar-mcp. This
   kills the current Maxima process and starts a fresh one. (Maxima does not
   reliably support mid-evaluation interrupts.)
-- **Restart Kernel**: Same mechanism. Clears the label map and resets
-  execution counter. Available as a toolbar button.
+- **Restart Kernel**: Same mechanism. aximar-mcp forgets the cells' runs
+  and numbers from 1 again. Available as a toolbar button.
 
-### Cell Metadata
+## Labels
 
-The controller stores per-cell metadata for label tracking:
+aximar-mcp resolves `%oN` and `%`, the same way the Aximar window does.
+Each call to `evaluate_expression` carries:
 
-```typescript
-interface MaximaCellMetadata {
-  outputLabel?: string;      // Real Maxima label, e.g. "%o6"
-  executionCount?: number;   // Display execution count (1, 2, 3...)
-}
-```
+- `cell_id`: the cell's document URI, fixed while the notebook is open
+- `cells_above`: the URIs of the code cells above it, top first
 
-This metadata is preserved in the cell's `metadata` field and persisted
-when the notebook is saved.
+The server gives the run the next number in the session, rewrites `%oN`
+to the Maxima label of the run numbered N, and rewrites a bare `%` to the
+output of the nearest cell above that has one in this session. It records
+the run against the cell and returns its number as `execution_count`. A
+label with no value in the session (`%o9` before nine runs, or after a
+restart) fails in its own cell.
 
-## Label Rewriting
+| Cell | Source | Number | Result |
+|------|--------|--------|--------|
+| 1 | `10;` | 1 | 10 |
+| 2 | `5;` | 2 | 5 |
+| 3 | `%o1 + %;` | 3 | 15 |
 
-**File:** `src/notebook/labels.ts`
+`%e`, `%pi`, `%th(n)`, `%%` and `%`-prefixed names keep Maxima's meaning.
 
-Maxima's `%` symbol refers to the last computed result. In a raw Maxima
-session, this is temporal — `%` means "the result I computed most recently."
-In a notebook, users expect `%` to mean "the output of the cell above,"
-regardless of the order in which cells were executed.
+Version 0.3.0 and earlier rewrote labels in the extension and stored
+`outputLabel` and `executionCount` in cell metadata. The controller removes
+those keys from a cell when it runs.
 
-Aximar's `evaluate_cell` in `aximar-core/src/evaluation.rs` handles this by
-rewriting labels before sending code to Maxima. Since we use
-`evaluate_expression` (which does no label rewriting), we port this logic
-to TypeScript.
+### Older aximar-mcp
 
-### How It Works
-
-**Context:** The controller maintains:
-- `labelMap: Map<number, string>` — maps display execution count → real
-  Maxima label (e.g., `1 → "%o6"`, `2 → "%o10"`)
-- Per-cell `outputLabel` in metadata
-
-**Before each execution:**
-
-1. Walk backwards through notebook cells from the current cell
-2. Find the first cell above with a non-null `outputLabel` →
-   `previousOutputLabel`
-3. Build `LabelContext { labelMap, previousOutputLabel }`
-4. Call `rewriteLabels(cellSource, context)`
-
-**The `rewriteLabels` function** (ported from
-`aximar-core/src/maxima/labels.rs`):
-
-1. **Step 1: Replace display `%oN`/`%iN`** — If cell source contains
-   `%o1`, and `labelMap` has `1 → "%o6"`, rewrite to `%o6`. This lets
-   users reference outputs by display order.
-2. **Step 2: Replace bare `%`** — Replace `%` (not followed by a letter,
-   digit, or underscore) with `previousOutputLabel`. This makes `%` refer
-   to the cell above, not the last-executed cell.
-
-**After execution:**
-
-Record the returned `output_label` (e.g., `"%o6"`) in the cell's metadata
-and in the `labelMap` under the current display execution count.
-
-### Special Forms Preserved
-
-The rewriter does NOT touch:
-- `%e`, `%pi`, `%i`, `%phi`, `%gamma` — Maxima constants
-- `%th(n)` — Maxima's "nth previous result" function
-- `%%` — Maxima's special form
-- `%_var` — User variables starting with `%`
-
-### Example
-
-Notebook has three cells:
-
-| Cell | Source | Display Count | Real Label |
-|------|--------|---------------|------------|
-| 1 | `x^2 + 1;` | 1 | `%o3` |
-| 2 | `diff(%, x);` | 2 | `%o7` |
-| 3 | `%o1 + %o2;` | — | — |
-
-When cell 2 executes:
-- `previousOutputLabel` = `%o3` (cell 1's output)
-- `diff(%, x)` → `diff(%o3, x)` (bare `%` → previous cell's label)
-
-When cell 3 executes:
-- `labelMap` = `{1: "%o3", 2: "%o7"}`
-- `%o1 + %o2` → `%o3 + %o7` (display labels → real labels)
+tools-v0.5.0 and earlier ignore `cell_id`, so `%o1` would reach Maxima
+unchanged. After connecting, the extension reads `tools/list`; when
+`evaluate_expression` doesn't take `cell_id` and `cells_above`, cells fail
+with a message naming the binary, and the extension offers to download the
+tools, build them with cargo, or open the `maxima.notebook.mcpPath`
+setting. The rest of the run fails with the same message, and the
+extension stops that aximar-mcp, so the next run starts the binary again
+and checks the update. Changing `maxima.notebook.mcpPath` also stops it.
+The download refuses releases older than `MIN_TOOLS_VERSION`
+(`src/toolsVersion.ts`). The check reads the schema rather than a version
+number, so builds from source work too.
 
 ### Unicode Translation
 

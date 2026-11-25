@@ -8,19 +8,17 @@
 import * as path from "path";
 import * as vscode from "vscode";
 import type { McpProcessManager } from "../mcpClient";
-import type { LabelContext, MaximaCellMetadata } from "../types";
-import { rewriteLabels } from "../labels";
+import { cellsAbove } from "../clientCells";
+import { openCargoInstall } from "../../binaryManager";
+import { MIN_TOOLS_VERSION } from "../../toolsVersion";
 import { buildOutputs, withTimeout } from "./outputs";
 
 export const NOTEBOOK_TYPE = "maxima-notebook";
 /** Compat type registered with "option" priority for .ipynb files. */
 export const NOTEBOOK_TYPE_COMPAT = "maxima-notebook-compat";
 
-/** Per-notebook execution state. */
-interface NotebookState {
-  executionOrder: number;
-  labelMap: Map<number, string>;
-}
+/** Cell metadata the extension wrote before aximar-mcp numbered runs. */
+const OLD_LABEL_KEYS = ["outputLabel", "executionCount"];
 
 /** Session entry with generation tracking for stale session detection. */
 interface SessionEntry {
@@ -30,8 +28,8 @@ interface SessionEntry {
 
 export class NotebookController {
   private controllers: vscode.NotebookController[];
-  /** Per-notebook execution state keyed by notebook URI. */
-  private notebookState = new Map<string, NotebookState>();
+  /** The aximar-mcp generation the update prompt last showed for. */
+  private updateOfferedFor = -1;
   /** Maps notebook URI → aximar-mcp session entry. */
   private sessionMap = new Map<string, SessionEntry>();
 
@@ -52,18 +50,6 @@ export class NotebookController {
     );
   }
 
-  // ── Per-notebook state ─────────────────────────────────────────────
-
-  private getState(notebook: vscode.NotebookDocument): NotebookState {
-    const uri = notebook.uri.toString();
-    let state = this.notebookState.get(uri);
-    if (!state) {
-      state = { executionOrder: 0, labelMap: new Map() };
-      this.notebookState.set(uri, state);
-    }
-    return state;
-  }
-
   // ── Cell execution ─────────────────────────────────────────────────
 
   private async executeCells(
@@ -72,78 +58,68 @@ export class NotebookController {
     controller: vscode.NotebookController,
   ): Promise<void> {
     // Execute cells sequentially to maintain session state order
+    let outdated = false;
     for (const cell of cells) {
-      await this.executeCell(cell, notebook, controller);
+      if (outdated) {
+        this.failOutdated(controller.createNotebookCellExecution(cell));
+      } else {
+        outdated = await this.executeCell(cell, notebook, controller);
+      }
+    }
+    if (outdated) {
+      await this.stopOutdated();
     }
   }
 
+  /** Run one cell; true when aximar-mcp is too old to run it. */
   private async executeCell(
     cell: vscode.NotebookCell,
     notebook: vscode.NotebookDocument,
     controller: vscode.NotebookController,
-  ): Promise<void> {
-    const state = this.getState(notebook);
+  ): Promise<boolean> {
     const execution = controller.createNotebookCellExecution(cell);
-    execution.executionOrder = ++state.executionOrder;
     execution.start(Date.now());
 
     try {
       // Ensure we have a session for this notebook
       const sessionId = await this.ensureSession(notebook);
 
-      // Build label context
-      const ctx = this.buildLabelContext(cell, notebook, state);
+      if (!this.mcpManager.supportsClientCells) {
+        this.failOutdated(execution, true);
+        void this.offerUpdate();
+        return true;
+      }
 
-      // Rewrite labels in the source
-      const source = cell.document.getText();
-      const rewritten = rewriteLabels(source, ctx);
-
-      // Evaluate with timeout
+      // The server numbers the run and resolves %oN and % against the
+      // cells above, so the source goes unchanged
+      const refs = notebook.getCells().map((c) => ({
+        id: c.document.uri.toString(),
+        isCode: c.kind === vscode.NotebookCellKind.Code,
+      }));
       const timeoutMs =
         vscode.workspace
           .getConfiguration("maxima.notebook")
           .get<number>("evalTimeout", 60) * 1000;
 
       const evalResult = await withTimeout(
-        this.mcpManager.evaluateExpression(rewritten, sessionId),
+        this.mcpManager.evaluateExpression(cell.document.getText(), sessionId, {
+          id: cell.document.uri.toString(),
+          above: cellsAbove(refs, cell.index),
+        }),
         timeoutMs,
         "Cell evaluation timed out",
       );
 
-      // Record label mapping
-      if (evalResult.output_label) {
-        state.labelMap.set(state.executionOrder, evalResult.output_label);
+      if (evalResult.execution_count != null) {
+        execution.executionOrder = evalResult.execution_count;
       }
-
-      // Store metadata on the cell
-      const metadata: MaximaCellMetadata = {
-        outputLabel: evalResult.output_label ?? undefined,
-        executionCount: state.executionOrder,
-      };
-      execution.executionOrder = state.executionOrder;
-
-      // Build output items
-      const outputs = buildOutputs(evalResult);
-      execution.replaceOutput(outputs);
-
-      // Update cell metadata via notebook edit
-      const edit = new vscode.WorkspaceEdit();
-      const cellMetadata = { ...cell.metadata, ...metadata };
-      const notebookEdit = vscode.NotebookEdit.updateCellMetadata(
-        cell.index,
-        cellMetadata,
-      );
-      edit.set(notebook.uri, [notebookEdit]);
-      await vscode.workspace.applyEdit(edit);
-
+      execution.replaceOutput(buildOutputs(evalResult));
+      await this.dropOldLabelMetadata(cell, notebook);
       execution.end(!evalResult.is_error, Date.now());
+      return false;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      execution.replaceOutput([
-        new vscode.NotebookCellOutput([
-          vscode.NotebookCellOutputItem.error(new Error(message)),
-        ]),
-      ]);
+      execution.replaceOutput([errorOutput(message)]);
       execution.end(false, Date.now());
 
       // Show notification for startup failures so the user can fix settings
@@ -162,31 +138,85 @@ export class NotebookController {
           );
         }
       }
+      return false;
     }
   }
 
-  // ── Label context ──────────────────────────────────────────────────
-
-  private buildLabelContext(
+  /** Remove the labels v0.3.0 stored on cells; they no longer mean anything. */
+  private async dropOldLabelMetadata(
     cell: vscode.NotebookCell,
     notebook: vscode.NotebookDocument,
-    state: NotebookState,
-  ): LabelContext {
-    // Find the previous code cell's output label
-    let previousOutputLabel: string | undefined;
-    for (let i = cell.index - 1; i >= 0; i--) {
-      const prevCell = notebook.cellAt(i);
-      if (prevCell.kind === vscode.NotebookCellKind.Code) {
-        const meta = prevCell.metadata as MaximaCellMetadata | undefined;
-        previousOutputLabel = meta?.outputLabel;
-        break;
+  ): Promise<void> {
+    if (!OLD_LABEL_KEYS.some((k) => k in cell.metadata)) {
+      return;
+    }
+    const metadata = { ...cell.metadata };
+    for (const k of OLD_LABEL_KEYS) {
+      delete metadata[k];
+    }
+    const edit = new vscode.WorkspaceEdit();
+    edit.set(notebook.uri, [
+      vscode.NotebookEdit.updateCellMetadata(cell.index, metadata),
+    ]);
+    await vscode.workspace.applyEdit(edit);
+  }
+
+  // ── Outdated aximar-mcp ────────────────────────────────────────────
+
+  private failOutdated(
+    execution: vscode.NotebookCellExecution,
+    started = false,
+  ): void {
+    if (!started) {
+      execution.start(Date.now());
+    }
+    execution.replaceOutput([errorOutput(this.outdatedMessage())]);
+    execution.end(false, Date.now());
+  }
+
+  /**
+   * Stop an aximar-mcp that's too old, so the next run starts the binary
+   * again and checks it: the user may have updated it or changed the path.
+   */
+  private async stopOutdated(): Promise<void> {
+    for (const [uri, entry] of this.sessionMap) {
+      if (entry.generation === this.mcpManager.generation) {
+        this.sessionMap.delete(uri);
       }
     }
+    await this.mcpManager.dispose();
+  }
 
-    return {
-      labelMap: state.labelMap,
-      previousOutputLabel,
-    };
+  private outdatedMessage(): string {
+    return (
+      `The aximar-mcp at "${this.mcpManager.command}" is too old to run notebook cells. ` +
+      `Update the Maxima tools to ${MIN_TOOLS_VERSION} or later.`
+    );
+  }
+
+  /** Offer the update once per aximar-mcp process, not once per cell. */
+  private async offerUpdate(): Promise<void> {
+    const generation = this.mcpManager.generation;
+    if (this.updateOfferedFor === generation) {
+      return;
+    }
+    this.updateOfferedFor = generation;
+    const choice = await vscode.window.showErrorMessage(
+      this.outdatedMessage(),
+      "Download Update",
+      "Install with cargo",
+      "Open Settings",
+    );
+    if (choice === "Download Update") {
+      await vscode.commands.executeCommand("maxima.downloadTools");
+    } else if (choice === "Install with cargo") {
+      openCargoInstall();
+    } else if (choice === "Open Settings") {
+      await vscode.commands.executeCommand(
+        "workbench.action.openSettings",
+        "maxima.notebook.mcpPath",
+      );
+    }
   }
 
   // ── Session management ─────────────────────────────────────────────
@@ -230,7 +260,9 @@ export class NotebookController {
     }
     const ctrlIndex =
       notebook.notebookType === NOTEBOOK_TYPE ? 0 : 1;
-    await this.executeCell(cell, notebook, this.controllers[ctrlIndex]);
+    if (await this.executeCell(cell, notebook, this.controllers[ctrlIndex])) {
+      await this.stopOutdated();
+    }
   }
 
   // ── Kernel management ──────────────────────────────────────────────
@@ -241,8 +273,6 @@ export class NotebookController {
     if (entry) {
       await this.mcpManager.restartSession(entry.sessionId);
     }
-    // Reset only this notebook's execution state
-    this.notebookState.delete(uri);
   }
 
   async interruptKernel(_notebook: vscode.NotebookDocument): Promise<void> {
@@ -270,7 +300,6 @@ export class NotebookController {
       }
       this.sessionMap.delete(uri);
     }
-    this.notebookState.delete(uri);
   }
 
   dispose(): void {
@@ -278,4 +307,10 @@ export class NotebookController {
       ctrl.dispose();
     }
   }
+}
+
+function errorOutput(message: string): vscode.NotebookCellOutput {
+  return new vscode.NotebookCellOutput([
+    vscode.NotebookCellOutputItem.error(new Error(message)),
+  ]);
 }
