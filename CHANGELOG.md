@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 ### Added
+
+### Changed
+
+### Fixed
+
+## [0.5.0] (pre-release)
+### Added
 - Animated plots from ax-plots' `animate(...)` play in notebooks, with a slider and play/pause controls. The axes stay fixed across frames, and lines keep every point, so the animation doesn't jitter or tear
 - The extension checks that aximar-mcp supports notebook cells and offers to update it when it doesn't; after an update, the next cell run uses the new version
 - Unit tests, and tests of the MCP client against real aximar-mcp builds (`npm test`)
