@@ -11,13 +11,21 @@ import type { McpProcessManager } from "../mcpClient";
 import { cellsAbove } from "../clientCells";
 import { openCargoInstall } from "../../binaryManager";
 import { MIN_TOOLS_VERSION } from "../../toolsVersion";
-import { buildOutputs, withTimeout } from "./outputs";
+import { withTimeout } from "./outputs";
+import {
+  buildOutputs,
+  cellMetadata,
+  errorWithoutStack,
+  isMaximaCode,
+  outputFromResult,
+  type CellMetadata,
+} from "../notebookFile";
 
 export const NOTEBOOK_TYPE = "maxima-notebook";
 /** Compat type registered with "option" priority for .ipynb files. */
 export const NOTEBOOK_TYPE_COMPAT = "maxima-notebook-compat";
 
-/** Cell metadata the extension wrote before aximar-mcp numbered runs. */
+/** File cell metadata the extension wrote before aximar-mcp numbered runs. */
 const OLD_LABEL_KEYS = ["outputLabel", "executionCount"];
 
 /** Session entry with generation tracking for stale session detection. */
@@ -59,7 +67,8 @@ export class NotebookController {
   ): Promise<void> {
     // Execute cells sequentially to maintain session state order
     let outdated = false;
-    for (const cell of cells) {
+    // Raw cells are text, never run
+    for (const cell of cells.filter(isMaximaCode)) {
       if (outdated) {
         this.failOutdated(controller.createNotebookCellExecution(cell));
       } else {
@@ -94,7 +103,7 @@ export class NotebookController {
       // cells above, so the source goes unchanged
       const refs = notebook.getCells().map((c) => ({
         id: c.document.uri.toString(),
-        isCode: c.kind === vscode.NotebookCellKind.Code,
+        isCode: isMaximaCode(c),
       }));
       const timeoutMs =
         vscode.workspace
@@ -113,8 +122,8 @@ export class NotebookController {
       if (evalResult.execution_count != null) {
         execution.executionOrder = evalResult.execution_count;
       }
-      execution.replaceOutput(buildOutputs(evalResult));
-      await this.dropOldLabelMetadata(cell, notebook);
+      execution.replaceOutput(buildOutputs(outputFromResult(evalResult)));
+      await this.clearRunMetadata(cell, notebook);
       execution.end(!evalResult.is_error, Date.now());
       return false;
     } catch (err) {
@@ -142,21 +151,30 @@ export class NotebookController {
     }
   }
 
-  /** Remove the labels v0.3.0 stored on cells; they no longer mean anything. */
-  private async dropOldLabelMetadata(
+  /**
+   * After a run, drop what belonged to the cell's earlier output: outputs
+   * kept from the file that the extension doesn't show (Aximar drops them
+   * on a run too), and the labels v0.3.0 stored, which no longer mean
+   * anything.
+   */
+  private async clearRunMetadata(
     cell: vscode.NotebookCell,
     notebook: vscode.NotebookDocument,
   ): Promise<void> {
-    if (!OLD_LABEL_KEYS.some((k) => k in cell.metadata)) {
+    const current = cellMetadata(cell);
+    const fileMetadata = current.metadata ?? {};
+    const oldLabels = OLD_LABEL_KEYS.some((k) => k in fileMetadata);
+    if (!oldLabels && current.otherOutputs === undefined) {
       return;
     }
-    const metadata = { ...cell.metadata };
+    const metadata: CellMetadata = { ...current, metadata: { ...fileMetadata } };
     for (const k of OLD_LABEL_KEYS) {
-      delete metadata[k];
+      delete metadata.metadata![k];
     }
+    delete metadata.otherOutputs;
     const edit = new vscode.WorkspaceEdit();
     edit.set(notebook.uri, [
-      vscode.NotebookEdit.updateCellMetadata(cell.index, metadata),
+      vscode.NotebookEdit.updateCellMetadata(cell.index, metadata as { [key: string]: unknown }),
     ]);
     await vscode.workspace.applyEdit(edit);
   }
@@ -255,8 +273,8 @@ export class NotebookController {
       );
     }
     const cell = notebook.cellAt(cellIndex);
-    if (cell.kind !== vscode.NotebookCellKind.Code) {
-      throw new Error(`Cell ${cellIndex} is a markup cell, not a code cell`);
+    if (!isMaximaCode(cell)) {
+      throw new Error(`Cell ${cellIndex} is a markdown or raw cell, not a code cell`);
     }
     const ctrlIndex =
       notebook.notebookType === NOTEBOOK_TYPE ? 0 : 1;
@@ -311,6 +329,6 @@ export class NotebookController {
 
 function errorOutput(message: string): vscode.NotebookCellOutput {
   return new vscode.NotebookCellOutput([
-    vscode.NotebookCellOutputItem.error(new Error(message)),
+    vscode.NotebookCellOutputItem.error(errorWithoutStack(message)),
   ]);
 }

@@ -4,6 +4,9 @@
 ### Added
 - The extension checks that aximar-mcp supports notebook cells and offers to update it when it doesn't; after an update, the next cell run uses the new version
 - Unit tests, and tests of the MCP client against real aximar-mcp builds (`npm test`)
+- Notebook files are read and written by `aximar-notebook-format`, the code Aximar uses, so both write the same files: every cell has an nbformat 4.5 `id`, kept across saves, and new and pasted cells get their own
+- Raw cells open as text and are saved unchanged (they were dropped)
+- A result's `text/plain` is its one-line form (`x^2/2`), with tools that send it
 
 ### Changed
 - aximar-mcp numbers cell runs and resolves `%oN` and `%`, as in the Aximar window; the extension sends each cell's ID and the IDs of the cells above it. Needs Maxima tools 0.6.0 or later
@@ -11,6 +14,9 @@
 - Cells no longer store `outputLabel` and `executionCount` metadata; running a cell removes them
 
 ### Fixed
+- A plot's `text/plain` is a description (`<SVG plot>`) instead of a copy of the plot's source, which Aximar showed as text
+- Error outputs read from a file show their message without the extension's stack trace
+- A file that isn't a notebook fails to open instead of opening empty, where saving would overwrite it
 - `%o1` and `%` work again with tools that include aximar#70
 - Downloading or updating the tools restarts aximar-mcp, so notebooks use the new version
 - Changing `maxima.notebook.mcpPath` takes effect on the next cell run instead of after a reload

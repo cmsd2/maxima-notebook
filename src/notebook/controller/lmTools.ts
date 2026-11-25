@@ -11,6 +11,7 @@ import {
   NOTEBOOK_TYPE,
   NOTEBOOK_TYPE_COMPAT,
 } from "./controller";
+import { isMaximaCode, outputFromCell, RAW_LANGUAGE } from "../notebookFile";
 
 // ── Input types ─────────────────────────────────────────────────────
 
@@ -74,44 +75,18 @@ interface CellOutputInfo {
 }
 
 function extractCellOutputs(cell: vscode.NotebookCell): CellOutputInfo {
-  let text: string | null = null;
-  let latex: string | null = null;
-  let hasSvgPlot = false;
-  let hasPlotlyChart = false;
-  let error: string | null = null;
-  let isError = false;
-
-  const decoder = new TextDecoder();
-  for (const output of cell.outputs) {
-    for (const item of output.items) {
-      switch (item.mime) {
-        case "text/plain":
-          text = decoder.decode(item.data);
-          break;
-        case "application/x-maxima-latex":
-          latex = decoder.decode(item.data);
-          break;
-        case "image/svg+xml":
-          hasSvgPlot = true;
-          break;
-        case "application/x-maxima-plotly":
-          hasPlotlyChart = true;
-          break;
-        case "application/vnd.code.notebook.error": {
-          isError = true;
-          try {
-            const errObj = JSON.parse(decoder.decode(item.data));
-            error = errObj.message ?? errObj.name ?? "Error";
-          } catch {
-            error = "Error";
-          }
-          break;
-        }
-      }
-    }
-  }
-
-  return { text, latex, hasSvgPlot, hasPlotlyChart, error, isError };
+  // The same reading a save does, so a plot's text/plain fallback isn't
+  // taken for print text
+  const output = outputFromCell(cell.outputs, null);
+  const text = [output?.textOutput, output?.textPlain].filter(Boolean).join("\n");
+  return {
+    text: text || null,
+    latex: output?.latex ?? null,
+    hasSvgPlot: output?.plotSvg != null,
+    hasPlotlyChart: output?.plotData != null,
+    error: output?.error ?? null,
+    isError: output?.isError ?? false,
+  };
 }
 
 // ── Tool: get_cells ─────────────────────────────────────────────────
@@ -130,13 +105,17 @@ class GetCellsTool implements vscode.LanguageModelTool<object> {
     for (let i = 0; i < notebook.cellCount; i++) {
       const cell = notebook.cellAt(i);
       const kind =
-        cell.kind === vscode.NotebookCellKind.Code ? "code" : "markdown";
+        cell.kind === vscode.NotebookCellKind.Markup
+          ? "markdown"
+          : cell.document.languageId === RAW_LANGUAGE
+            ? "raw"
+            : "code";
       const cellInfo: Record<string, unknown> = {
         index: i,
         kind,
         source: cell.document.getText(),
       };
-      if (cell.kind === vscode.NotebookCellKind.Code) {
+      if (isMaximaCode(cell)) {
         cellInfo.executionCount =
           cell.executionSummary?.executionOrder ?? null;
         cellInfo.outputs = extractCellOutputs(cell);
@@ -178,9 +157,9 @@ class RunCellTool implements vscode.LanguageModelTool<RunCellInput> {
     }
 
     const cell = notebook.cellAt(cellIndex);
-    if (cell.kind !== vscode.NotebookCellKind.Code) {
+    if (!isMaximaCode(cell)) {
       return textResult(
-        `Cell ${cellIndex} is a markdown cell, not a code cell.`,
+        `Cell ${cellIndex} is a markdown or raw cell, not a code cell.`,
       );
     }
 
