@@ -145,6 +145,7 @@ NotebookController
      - plot_svg → image/svg+xml
      - plot_data → application/x-maxima-plotly
      - text_output → text/plain
+     - image_png → image/png
      - error → NotebookCellOutputItem.error()
   3. execution.replaceOutput(outputs)
   4. execution.end(success, timestamp)
@@ -239,7 +240,9 @@ The `activate()` function registers all components:
 | File | Responsibility |
 |------|---------------|
 | `src/extension.ts` | Activation, registration of all components |
-| `src/notebook/serializer.ts` | `.ipynb` ↔ `NotebookData` conversion |
+| `src/notebook/serializer.ts` | Notebook files ↔ `NotebookData`, through `notebookFile.ts` |
+| `src/notebook/notebookFile.ts` | The `aximar-notebook-format` package's model ↔ VS Code's; output building |
+| `src/notebook/cellIds.ts` | IDs for added and pasted cells |
 | `src/notebook/controller.ts` | Cell execution, output mapping, the outdated-server prompt |
 | `src/notebook/mcpClient.ts` | aximar-mcp process lifecycle, MCP SDK wrapper |
 | `src/notebook/clientCells.ts` | The `tools/list` check and the cell ID list |

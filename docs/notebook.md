@@ -16,77 +16,53 @@ handler for `.ipynb` files alongside the Jupyter extension.
 
 ## NotebookSerializer
 
-**File:** `src/notebook/serializer.ts`
+**Files:** `src/notebook/serializer.ts`, `src/notebook/notebookFile.ts`, `src/notebook/cellIds.ts`
 
-Converts between Jupyter's `.ipynb` JSON format and VS Code's `NotebookData`.
+Notebook files follow Aximar's format, described in
+[`docs/notebook-format.md`](https://github.com/cmsd2/aximar/blob/master/docs/notebook-format.md)
+in the aximar repository: Jupyter nbformat 4.5 with cell IDs. The
+[`aximar-notebook-format`](https://www.npmjs.com/package/aximar-notebook-format)
+package reads and writes them. It's the Rust code Aximar uses, built as
+WebAssembly, so the extension and Aximar write the same bytes. The build
+copies its `.wasm` file into `out/` next to the bundle.
 
-### Deserialization (file → editor)
+`notebookFile.ts` maps the package's model to VS Code's:
 
-1. Parse JSON into `IpynbNotebook` structure
-2. Map each `IpynbCell` to `NotebookCellData`:
-   - `cell_type: "code"` → `NotebookCellKind.Code` with `languageId: "maxima"`
-   - `cell_type: "markdown"` → `NotebookCellKind.Markup` with `languageId: "markdown"`
-   - `cell_type: "raw"` → filtered out
-3. Restore outputs from `outputs[].data` MIME bundles:
-   - `text/latex` in ipynb → `application/x-maxima-latex` in VS Code
-   - `application/x-maxima-plotly` preserved as-is
-   - `image/svg+xml`, `text/plain` preserved as-is
-4. Restore `execution_count` into `executionSummary`
-5. If file is empty or invalid, return a single empty code cell
+| File | VS Code |
+|------|---------|
+| Code cell | Code cell, language `maxima` |
+| Markdown cell | Markup cell |
+| Raw cell | Code cell, language `raw`: shown as text, never run, written back unchanged |
+| Cell `id` | `metadata.id` |
+| Cell `metadata` | `metadata.metadata` (kept as read) |
+| Other cell fields (`attachments`) | `metadata.extra` |
+| A cell's output | VS Code outputs, one per part (below) |
+| Outputs of other kinds | `metadata.otherOutputs`, written back until the cell runs |
+| `execution_count` | the cell's execution order |
 
-### Serialization (editor → file)
+Notebook metadata, `metadata.aximar` included, is kept. An empty file
+opens as a notebook with one empty cell; a file that isn't a notebook
+fails to open with the package's error, rather than opening empty and
+being overwritten on save.
 
-1. Map each `NotebookCellData` back to `IpynbCell`
-2. Split cell source by newlines (ipynb stores source as `string[]`)
-3. Map MIME types back to ipynb conventions:
-   - `application/x-maxima-latex` → `text/latex` for Aximar/Jupyter compat
-4. Always include `text/plain` fallback in output data
-5. Write metadata with kernel spec:
-   ```json
-   {
-     "kernelspec": {
-       "name": "maxima",
-       "display_name": "Maxima",
-       "language": "maxima"
-     }
-   }
-   ```
-6. Preserve `metadata.aximar` if present (template_id, title, description)
+### Cell IDs
 
-### ipynb Format Reference
+A cell read from a file keeps its ID if it's valid and unique; otherwise
+the package gives it a new one. A cell added in VS Code gets an ID as it's
+added, and a pasted copy gets its own (`cellIds.ts`, which listens for
+added cells). Saving checks again, so the file never has a missing or
+repeated ID.
 
-The `.ipynb` format matches Aximar's implementation in
-`aximar-core/src/notebooks/types.rs`:
+### Outputs
 
-```json
-{
-  "nbformat": 4,
-  "nbformat_minor": 5,
-  "metadata": {
-    "kernelspec": { "name": "maxima", "display_name": "Maxima", "language": "maxima" },
-    "aximar": { "template_id": null, "title": null, "description": null }
-  },
-  "cells": [
-    {
-      "cell_type": "code",
-      "source": ["integrate(x^2, x);"],
-      "metadata": {},
-      "execution_count": 1,
-      "outputs": [
-        {
-          "output_type": "execute_result",
-          "data": {
-            "text/plain": "x^3/3",
-            "text/latex": "{{x^3}\\over{3}}"
-          },
-          "metadata": {},
-          "execution_count": 1
-        }
-      ]
-    }
-  ]
-}
-```
+Each VS Code output holds one part of a run, tagged in the output's
+metadata (`part`): print text, the result, a plot or the error. Saving
+reads them back by part, so a plot's `text/plain` fallback is never taken
+for print text. The result's one-line form (`text_plain` from aximar-mcp)
+rides in the result output's metadata and is saved as its `text/plain`;
+aximar-mcp 0.6.0 doesn't send it, so those results are saved with LaTeX
+only. An SVG plot is shown resized to fit the editor, and saved as
+received.
 
 ## NotebookController
 
@@ -131,8 +107,10 @@ The `evaluate_expression` MCP tool returns:
 interface EvalResult {
   text_output: string;
   latex?: string | null;
+  text_plain?: string | null;  // the result's one-line form, after tools 0.6.0
   plot_svg?: string | null;
   plot_data?: string | null;
+  image_png?: string | null;
   error?: string | null;
   is_error: boolean;
   duration_ms: number;
@@ -141,22 +119,20 @@ interface EvalResult {
 }
 ```
 
-These fields map to VS Code notebook outputs:
+`buildOutputs` in `notebookFile.ts` turns it into VS Code outputs, in the
+order the file keeps them, the same way it shows outputs read from a file:
 
-| Field | Condition | MIME Type | Renderer |
-|-------|-----------|-----------|----------|
-| `error` | `is_error === true` | error output | Native VS Code |
-| `text_output` | Non-empty, separate from result | `text/plain` | Native |
-| `latex` | Present | `application/x-maxima-latex` | Custom (KaTeX) |
-| `plot_svg` | Present | `image/svg+xml` | Native |
-| `plot_data` | Present | `application/x-maxima-plotly` | Custom (Plotly) |
+| Field | MIME type | Renderer |
+|-------|-----------|----------|
+| `text_output` (print text) | `text/plain` | Native |
+| `latex` | `application/x-maxima-latex` | Custom (KaTeX) |
+| `plot_data` | `application/x-maxima-plotly` | Custom (Plotly) |
+| `plot_svg` | `image/svg+xml` | Native |
+| `image_png` | `image/png` | Native |
+| `error` | error output | Native |
 
-When a cell produces multiple output types (e.g., both LaTeX and a plot),
-they are placed in separate `NotebookCellOutput` objects so they render
-as distinct output blocks.
-
-Text output (`print()` statements, warnings, provisos) renders above the
-main result, mimicking Jupyter behavior.
+When a run fails, aximar-mcp puts its print text in `error`, so the error
+shows it.
 
 ### Interrupt / Restart
 

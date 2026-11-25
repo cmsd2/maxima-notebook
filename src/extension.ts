@@ -6,6 +6,7 @@ import {
 } from "vscode-languageclient/node";
 import { McpProcessManager } from "./notebook/mcpClient";
 import { MaximaNotebookSerializer } from "./notebook/serializer";
+import { registerCellIds } from "./notebook/cellIds";
 import {
   NotebookController,
   NOTEBOOK_TYPE,
@@ -204,6 +205,7 @@ export async function activate(
       }),
     );
   }
+  context.subscriptions.push(registerCellIds(notebookTypes));
 
   const isMaximaNotebook = (notebook: vscode.NotebookDocument) =>
     notebookTypes.includes(notebook.notebookType);

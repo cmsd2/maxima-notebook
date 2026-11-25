@@ -4,6 +4,7 @@
  */
 
 import * as vscode from "vscode";
+import { isMaximaCode } from "../notebookFile";
 import * as path from "path";
 import * as os from "os";
 import * as fs from "fs/promises";
@@ -64,7 +65,7 @@ export async function generateTempFile(
 
   for (let i = 0; i <= lastIndex && i < notebook.cellCount; i++) {
     const cell = notebook.cellAt(i);
-    if (cell.kind === vscode.NotebookCellKind.Code) {
+    if (isMaximaCode(cell)) {
       codeCells.push({
         cellIndex: i,
         cellUri: cell.document.uri.toString(),

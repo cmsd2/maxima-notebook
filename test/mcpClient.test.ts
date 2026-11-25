@@ -6,6 +6,8 @@
  */
 import { afterEach, describe, expect, it } from "vitest";
 import { McpProcessManager } from "../src/notebook/mcpClient";
+import * as vscode from "vscode";
+import { buildOutputs, notebookToFile, outputFromResult } from "../src/notebook/notebookFile";
 import { outputChannel } from "./vscode-mock";
 
 const current = process.env.AXIMAR_MCP;
@@ -68,7 +70,27 @@ describe.skipIf(!current)("an aximar-mcp with client cells", () => {
     expect(r.execution_count).toBe(1);
   });
 
-  it("numbers from 1 again after a restart", async () => {
+  it("saves a run's result as Aximar would", async () => {
+    const m = start(current!);
+    const session = await m.createSession();
+    const result = await m.evaluateExpression('print("hi")$ x^2/2;', session, { id: "a", above: [] });
+    const cell = new vscode.NotebookCellData(vscode.NotebookCellKind.Code, "", "maxima");
+    cell.metadata = { id: "a" };
+    cell.outputs = buildOutputs(outputFromResult(result));
+    cell.executionSummary = { executionOrder: result.execution_count ?? undefined };
+    const saved = JSON.parse(notebookToFile(new vscode.NotebookData([cell]))).cells[0];
+    expect(saved.outputs[0]).toEqual({ output_type: "stream", name: "stdout", text: ["hi"] });
+    const value = saved.outputs[1];
+    expect(value).toMatchObject({ output_type: "execute_result", execution_count: 1 });
+    // aximar-mcp after tools 0.6.0 sends the one-line form; 0.6.0 doesn't
+    if ("text_plain" in result) {
+      expect(value.data["text/plain"]).toEqual(["x^2/2"]);
+    } else {
+      expect(value.data["text/plain"]).toBeUndefined();
+    }
+  });
+
+    it("numbers from 1 again after a restart", async () => {
     const m = start(current!);
     const session = await m.createSession();
     await m.evaluateExpression("1;", session, { id: "a", above: [] });

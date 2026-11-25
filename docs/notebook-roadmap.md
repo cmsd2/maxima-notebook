@@ -9,7 +9,7 @@ notebook in VS Code.
 
 | Component | File | Status |
 |-----------|------|--------|
-| Serializer | `src/notebook/serializer.ts` | Complete — ipynb read/write, MIME remapping |
+| Serializer | `src/notebook/serializer.ts`, `notebookFile.ts` | Complete: Aximar's format through `aximar-notebook-format`, cell IDs, raw cells |
 | Controller | `src/notebook/controller.ts` | Complete — per-notebook state, eval timeout, crash recovery |
 | MCP client | `src/notebook/mcpClient.ts` | Complete — ephemeral port, bearer token auth, generation tracking |
 | Labels | aximar-mcp (`cell_id`, `cells_above`) | Complete, resolved by the server |
@@ -173,7 +173,7 @@ Add test infrastructure and unit tests for core notebook logic.
 
 **Targets:**
 - `clientCells.ts`: the `tools/list` check and the cell ID list
-- `serializer.ts` — round-trip ipynb serialization
+- `serializer.ts` and `notebookFile.ts`: Aximar's notebook format, through `aximar-notebook-format`
 - `controller.ts` — output mapping logic (mock MCP client)
 
 **Framework:** vitest or mocha + `@vscode/test-electron`

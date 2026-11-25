@@ -1,0 +1,158 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "id": "intro",
+   "metadata": {},
+   "source": [
+    "# Integrals"
+   ]
+  },
+  {
+   "cell_type": "raw",
+   "id": "note",
+   "metadata": {},
+   "source": [
+    "Kept as is."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 1,
+   "id": "c1",
+   "metadata": {
+    "tags": [
+     "demo"
+    ]
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "working"
+     ]
+    },
+    {
+     "data": {
+      "text/latex": [
+       "{{x^2}\\over{2}}"
+      ],
+      "text/plain": [
+       "x^2/2"
+      ]
+     },
+     "execution_count": 1,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "print(\"working\")$\n",
+    "integrate(x, x);"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 2,
+   "id": "c2",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "image/svg+xml": [
+       "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"40\" height=\"20\"><path d=\"M0,20 L40,0\" stroke=\"blue\"/></svg>\n"
+      ],
+      "text/plain": [
+       "<SVG plot>"
+      ]
+     },
+     "metadata": {},
+     "output_type": "display_data"
+    }
+   ],
+   "source": [
+    "plot2d(x^2, [x, 0, 1])$"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 3,
+   "id": "c3",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "application/x-maxima-plotly": [
+       "{\"data\":[{\"x\":[0,1],\"y\":[0,1],\"type\":\"scatter\"}],\"layout\":{}}"
+      ],
+      "text/plain": [
+       "<Plotly figure>"
+      ]
+     },
+     "metadata": {},
+     "output_type": "display_data"
+    }
+   ],
+   "source": [
+    "plot2d(x, [x, 0, 1], [plot_format, plotly])$"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 4,
+   "id": "c4",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "image/png": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+      "text/plain": [
+       "<PNG image>"
+      ]
+     },
+     "metadata": {},
+     "output_type": "display_data"
+    }
+   ],
+   "source": [
+    "/* a cell whose output is a PNG image */"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 5,
+   "id": "c5",
+   "metadata": {},
+   "outputs": [
+    {
+     "ename": "MaximaError",
+     "evalue": "expt: undefined: 0 to a negative exponent.\n -- an error. To debug this try: debugmode(true);",
+     "output_type": "error",
+     "traceback": []
+    }
+   ],
+   "source": [
+    "1/0;"
+   ]
+  }
+ ],
+ "metadata": {
+  "aximar": {
+   "future_key": {
+    "kept": true
+   },
+   "title": "Integrals"
+  },
+  "jupytext": {
+   "formats": "ipynb"
+  },
+  "kernelspec": {
+   "display_name": "Maxima",
+   "language": "maxima",
+   "name": "maxima"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}

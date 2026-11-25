@@ -43,6 +43,22 @@ const cssInlinePlugin = {
   },
 };
 
+/**
+ * Copy aximar-notebook-format's WebAssembly next to the bundle: the package
+ * loads it from `${__dirname}`, which is out/ once bundled, and node_modules
+ * isn't packaged.
+ */
+const notebookFormatWasmPlugin = {
+  name: "notebook-format-wasm",
+  setup(build) {
+    build.onEnd(() => {
+      const wasm = "aximar_notebook_format_bg.wasm";
+      fs.mkdirSync("out", { recursive: true });
+      fs.copyFileSync(path.join("node_modules", "aximar-notebook-format", wasm), path.join("out", wasm));
+    });
+  },
+};
+
 // Extension host (Node.js, CommonJS)
 const extCtx = await esbuild.context({
   entryPoints: ["src/extension.ts"],
@@ -55,6 +71,7 @@ const extCtx = await esbuild.context({
   outfile: "out/extension.js",
   external: ["vscode"],
   logLevel: "info",
+  plugins: [notebookFormatWasmPlugin],
 });
 
 // Notebook renderer (browser, ES modules)
